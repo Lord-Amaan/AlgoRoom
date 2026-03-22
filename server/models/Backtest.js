@@ -1,0 +1,49 @@
+const mongoose = require('mongoose');
+
+const daywiseResultSchema = new mongoose.Schema({
+  date: { type: Date, required: true },
+  pnl: { type: Number, default: 0 },
+  trades: { type: Number, default: 0 },
+});
+
+const backtestSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    strategy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Strategy',
+      required: true,
+    },
+    startDate: {
+      type: Date,
+      required: true,
+    },
+    endDate: {
+      type: Date,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'running', 'completed', 'failed'],
+      default: 'pending',
+    },
+    // Summary results
+    totalPnl: { type: Number, default: 0 },
+    totalTrades: { type: Number, default: 0 },
+    winDays: { type: Number, default: 0 },
+    lossDays: { type: Number, default: 0 },
+    maxDrawdown: { type: Number, default: 0 },
+    maxProfit: { type: Number, default: 0 },
+    winRate: { type: Number, default: 0 },
+
+    // Daywise breakdown
+    daywiseResults: [daywiseResultSchema],
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model('Backtest', backtestSchema);
