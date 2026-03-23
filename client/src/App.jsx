@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import Dashboard from './pages/Dashboard';
 import StrategyBuilder from './pages/StrategyBuilder';
 import Backtesting from './pages/Backtesting';
@@ -7,7 +8,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
-import { useAuth } from './context/AuthContext';
 
 function AppLayout({ children }) {
   return (
@@ -22,16 +22,23 @@ function AppLayout({ children }) {
 }
 
 function ProtectedRoute({ children }) {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" />;
-  return <AppLayout>{children}</AppLayout>;
+  return (
+    <>
+      <SignedIn>
+        <AppLayout>{children}</AppLayout>
+      </SignedIn>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </>
+  );
 }
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/sign-in/*" element={<Login />} />
+      <Route path="/sign-up/*" element={<Register />} />
       <Route
         path="/"
         element={
