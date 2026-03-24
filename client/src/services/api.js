@@ -8,18 +8,24 @@ const api = axios.create({
 });
 
 export function setupAxiosInterceptor(getToken) {
-  api.interceptors.request.use(async (config) => {
+  const interceptorId = api.interceptors.request.use(async (config) => {
+    // Attach Clerk token on every request so backend can identify the logged-in user.
     const token = await getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   });
+
+  return () => {
+    api.interceptors.request.eject(interceptorId);
+  };
 }
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // If session is invalid/expired, push user back to sign-in.
     if (error.response?.status === 401) {
       window.location.href = '/sign-in';
     }

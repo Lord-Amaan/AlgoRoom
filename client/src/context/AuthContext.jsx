@@ -6,6 +6,9 @@ export function useClerkAxios() {
   const { getToken } = useAuth();
 
   useEffect(() => {
-    setupAxiosInterceptor(getToken);
+    // Start request interceptor once auth is ready.
+    const cleanup = setupAxiosInterceptor(getToken);
+
+    return cleanup;
   }, [getToken]);
 }

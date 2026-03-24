@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import { useClerkAxios } from './context/AuthContext';
 
 function AppLayout({ children }) {
   return (
@@ -35,6 +36,9 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
+  // Keeps API calls authenticated across the app.
+  useClerkAxios();
+
   return (
     <Routes>
       <Route path="/sign-in/*" element={<Login />} />
