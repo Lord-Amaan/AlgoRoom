@@ -1,85 +1,53 @@
 const mongoose = require('mongoose');
 
-const legSchema = new mongoose.Schema({
-  instrument: {
-    type: String,
-    required: true,
-    enum: ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY'],
-  },
-  position: {
-    type: String,
-    required: true,
-    enum: ['BUY', 'SELL'],
-  },
-  optionType: {
-    type: String,
-    required: true,
-    enum: ['CE', 'PE'],
-  },
-  expiry: {
-    type: String,
-    required: true,
-    enum: ['WEEKLY', 'MONTHLY'],
-  },
-  strikeType: {
-    type: String,
-    required: true,
-    enum: ['ATM', 'ITM1', 'ITM2', 'ITM3', 'OTM1', 'OTM2', 'OTM3'],
-  },
-  lots: {
-    type: Number,
-    default: 1,
-    min: 1,
-  },
-  stopLoss: {
-    type: Number,
-    default: 0,
-  },
-  takeProfit: {
-    type: Number,
-    default: 0,
-  },
+const LegSchema = new mongoose.Schema({
+  qty: { type: Number, default: 0 },
+  position: { type: String, enum: ['BUY', 'SELL'] },
+  optionType: { type: String, enum: ['CALL', 'PUT'] },
+  expiry: { type: String, enum: ['WEEKLY', 'MONTHLY'] },
+  strikeCriteria: { type: String }, // e.g. "ATM pt"
+  strikeType: { type: String },     // e.g. "ATM"
+  slType: { type: String, enum: ['SL%', 'SL_POINTS'] },
+  sl: { type: Number },
+  slOnPrice: { type: String },
+  tpType: { type: String, enum: ['TP%', 'TP_POINTS'] },
+  tp: { type: Number },
+  tpOnPrice: { type: String },
+  isActive: { type: Boolean, default: true }
 });
 
-const strategySchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    name: {
-      type: String,
-      required: [true, 'Strategy name is required'],
-      trim: true,
-    },
-    description: {
-      type: String,
-      trim: true,
-    },
-    legs: [legSchema],
-    entryTime: {
-      type: String,
-      default: '09:20',
-    },
-    exitTime: {
-      type: String,
-      default: '15:15',
-    },
-    overallStopLoss: {
-      type: Number,
-      default: 0,
-    },
-    overallTakeProfit: {
-      type: Number,
-      default: 0,
-    },
-    isActive: {
-      type: Boolean,
-      default: false,
-    },
+const StrategySchema = new mongoose.Schema({
+  userId: { type: String, required: true }, // from Clerk
+  name: { type: String },
+  strategyType: {
+    type: String,
+    enum: ['TIME_BASED', 'INDICATOR_BASED', 'STOCKS_FUTURES']
   },
-  { timestamps: true }
-);
-
-module.exports = mongoose.model('Strategy', strategySchema);
+  instruments: [{ type: String }],
+  orderConfig: {
+    type: { type: String, enum: ['MIS', 'CNC', 'BTST'] },
+    startTime: String,   // "09:16"
+    squareOff: String,   // "15:15"
+    activeDays: [{ type: String, enum: ['MON','TUE','WED','THU','FRI'] }]
+  },
+  legs: [LegSchema],
+  riskManagement: {
+    exitOnProfit: Number,
+    exitOnLoss: Number,
+    noTradeAfter: String,
+    profitTrailing: {
+      type: String,
+      enum: ['NO_TRAILING', 'LOCK_FIX', 'TRAIL_PROFIT', 'LOCK_AND_TRAIL']
+    }
+  },
+  advanceFeatures: {
+    moveSLtoCost: Boolean,
+    exitAllOnSLTgt: Boolean,
+    prePunchSL: Boolean,
+    waitAndTrade: Boolean,
+    premiumDifference: Boolean,
+    reEntryExecute: Boolean,
+    trailSL: Boolean
+  }
+}, { timestamps: true });
+module.exports = mongoose.model('Strategy', StrategySchema);

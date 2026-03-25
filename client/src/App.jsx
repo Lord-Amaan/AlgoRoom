@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
+import { useAuth } from '@clerk/clerk-react';
 import Dashboard from './pages/Dashboard';
 import StrategyBuilder from './pages/StrategyBuilder';
 import Backtesting from './pages/Backtesting';
@@ -9,6 +11,7 @@ import Register from './pages/Register';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import { useClerkAxios } from './context/AuthContext';
+import api from './services/api';
 
 function AppLayout({ children }) {
   return (
@@ -38,6 +41,23 @@ function ProtectedRoute({ children }) {
 export default function App() {
   // Keeps API calls authenticated across the app.
   useClerkAxios();
+  const { isSignedIn, userId } = useAuth();
+  const syncedForUser = useRef(null);
+
+  useEffect(() => {
+    // Sync signed-in Clerk user to Mongo once per user session.
+    if (!isSignedIn || !userId || syncedForUser.current === userId) {
+      return;
+    }
+
+    api.get('/auth/me')
+      .then(() => {
+        syncedForUser.current = userId;
+      })
+      .catch(() => {
+        // Keep app usable even if sync fails; next API calls can retry.
+      });
+  }, [isSignedIn, userId]);
 
   return (
     <Routes>

@@ -1,37 +1,139 @@
 import { useEffect, useState } from 'react';
+import { useUser, useAuth } from '@clerk/clerk-react'; 
 import api from '../services/api';
 
 export default function Dashboard() {
-  const [authStatus, setAuthStatus] = useState('Checking auth bootstrap...');
+  const { user } = useUser();
+  const [strategies, setStrategies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+   
+  const { getToken } = useAuth(); // ← add this
+
+  // ⬇️ add this block temporarily
+  useEffect(() => {
+    const logToken = async () => {
+      const token = await getToken()
+      console.log('🔑 TOKEN:', token)
+    }
+    logToken()
+  }, [])
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchMe = async () => {
+    const fetchStrategies = async () => {
       try {
-        const response = await api.get('/auth/me');
-        if (isMounted) {
-          setAuthStatus(`Connected as ${response.data?.userId || 'unknown user'}`);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setAuthStatus(error.response?.data?.message || 'Failed to reach /api/auth/me');
-        }
+        const response = await api.get('/strategies');
+        setStrategies(response.data.data); // { success: true, data: [...] }
+      } catch (err) {
+        setError('Failed to fetch strategies');
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchMe();
-
-    return () => {
-      isMounted = false;
-    };
+    fetchStrategies();
   }, []);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-      <p className="text-dark-400">Portfolio overview, equity curve, active strategies, and recent trades.</p>
-      <p className="text-sm mt-3">Auth status: {authStatus}</p>
+    <div className="p-6">
+
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">
+          Welcome back, {user?.firstName || 'Trader'} 👋
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Here's your trading overview
+        </p>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <p className="text-gray-500 text-sm">Total Strategies</p>
+          <p className="text-2xl font-bold mt-1">{strategies.length}</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <p className="text-gray-500 text-sm">Active Strategies</p>
+          <p className="text-2xl font-bold mt-1">
+            {strategies.filter(s => s.isActive).length}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <p className="text-gray-500 text-sm">Total Legs</p>
+          <p className="text-2xl font-bold mt-1">
+            {strategies.reduce((acc, s) => acc + (s.legs?.length || 0), 0)}
+          </p>
+        </div>
+      </div>
+
+      {/* Strategies List */}
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Your Strategies</h2>
+          <a
+            href="/strategies/new"
+            className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            + New Strategy
+          </a>
+        </div>
+
+        {/* Loading */}
+        {loading && (
+          <p className="text-gray-400 text-sm">Loading strategies...</p>
+        )}
+
+        {/* Error */}
+        {error && (
+          <p className="text-red-500 text-sm">{error}</p>
+        )}
+
+        {/* Empty */}
+        {!loading && !error && strategies.length === 0 && (
+          <div className="text-center py-12 border rounded-xl">
+            <p className="text-gray-400">No strategies yet</p>
+            <a
+              href="/strategies/new"
+              className="text-blue-600 text-sm mt-2 inline-block hover:underline"
+            >
+              Create your first strategy
+            </a>
+          </div>
+        )}
+
+        {/* Strategy Cards */}
+        {!loading && !error && strategies.length > 0 && (
+          <div className="grid grid-cols-1 gap-3">
+            {strategies.map((strategy) => (
+              <div
+                key={strategy._id}
+                className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition cursor-pointer"
+                onClick={() => window.location.href = `/strategies/${strategy._id}`}
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-semibold">{strategy.name || 'Unnamed Strategy'}</p>
+                    <p className="text-gray-400 text-sm mt-1">
+                      {strategy.strategyType || 'No type'} • {strategy.legs?.length || 0} legs
+                    </p>
+                  </div>
+                  <span className={`text-xs px-3 py-1 rounded-full ${
+                    strategy.orderConfig?.type === 'MIS'
+                      ? 'bg-blue-100 text-blue-700'
+                      : strategy.orderConfig?.type === 'CNC'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {strategy.orderConfig?.type || 'N/A'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
