@@ -1,6 +1,14 @@
-const { requireAuth, getAuth } = require('@clerk/express');
+const { getAuth } = require('@clerk/express');
 
-// Blocks unauthenticated requests before they reach controllers.
-const protect = requireAuth();
+// API-friendly auth guard that returns JSON instead of redirecting.
+const protect = (req, res, next) => {
+	const { userId } = getAuth(req);
+
+	if (!userId) {
+		return res.status(401).json({ success: false, error: 'Unauthorized' });
+	}
+
+	next();
+};
 
 module.exports = { protect, getAuth };
