@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUser, useAuth } from '@clerk/clerk-react'; 
 import api from '../services/api';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user } = useUser();
   const [strategies, setStrategies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,12 +73,12 @@ export default function Dashboard() {
       <div>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Your Strategies</h2>
-          <a
-            href="/strategies/new"
+          <button
+            onClick={() => navigate('/strategy-builder')}
             className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700"
           >
             + New Strategy
-          </a>
+          </button>
         </div>
 
         {/* Loading */}
@@ -93,12 +95,12 @@ export default function Dashboard() {
         {!loading && !error && strategies.length === 0 && (
           <div className="text-center py-12 border rounded-xl">
             <p className="text-gray-400">No strategies yet</p>
-            <a
-              href="/strategies/new"
+            <button
+              onClick={() => navigate('/strategy-builder')}
               className="text-blue-600 text-sm mt-2 inline-block hover:underline"
             >
               Create your first strategy
-            </a>
+            </button>
           </div>
         )}
 

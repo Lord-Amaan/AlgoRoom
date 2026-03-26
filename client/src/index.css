@@ -1,7 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --surface-bg: #f4f7fd;
+  --ink: #152235;
+}
+
 body {
-  @apply bg-dark-950 text-dark-100 antialiased;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  background: radial-gradient(circle at 12% 4%, #f8fbff 0%, var(--surface-bg) 45%, #ecf1f8 100%);
+  color: var(--ink);
+  @apply antialiased;
+}
+
+main {
+  animation: page-enter 380ms ease-out;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
