@@ -26,7 +26,11 @@ const tradeSchema = new mongoose.Schema(
     },
     optionType: {
       type: String,
-      enum: ['CE', 'PE'],
+      enum: ['CALL', 'PUT'],
+    },
+    legIndex: {
+      type: Number,
+      default: 0,
     },
     entryPrice: {
       type: Number,

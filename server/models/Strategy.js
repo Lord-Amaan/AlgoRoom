@@ -6,13 +6,13 @@ const LegSchema = new mongoose.Schema({
   optionType: { type: String, enum: ['CALL', 'PUT'] },
   expiry: { type: String, enum: ['WEEKLY', 'MONTHLY'] },
   strikeCriteria: { type: String }, // e.g. "ATM pt"
-  strikeType: { type: String },     // e.g. "ATM"
+  strikeType: { type: String, enum: ['ATM', 'OTM_1', 'OTM_2', 'OTM_3', 'ITM_1', 'ITM_2'] },
   slType: { type: String, enum: ['SL%', 'SL_POINTS'] },
   sl: { type: Number },
-  slOnPrice: { type: String },
+  slOnPrice: { type: String, enum: ['ENTRY', 'CURRENT'] },
   tpType: { type: String, enum: ['TP%', 'TP_POINTS'] },
   tp: { type: Number },
-  tpOnPrice: { type: String },
+  tpOnPrice: { type: String, enum: ['ENTRY', 'CURRENT'] },
   isActive: { type: Boolean, default: true }
 });
 

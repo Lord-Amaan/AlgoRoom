@@ -40,6 +40,17 @@ const backtestSchema = new mongoose.Schema(
     maxProfit: { type: Number, default: 0 },
     winRate: { type: Number, default: 0 },
 
+    // Individual trade results
+    trades: [{
+      legIndex: { type: Number, default: 0 },
+      entryPrice: { type: Number },
+      exitPrice: { type: Number },
+      entryTime: { type: Date },
+      exitTime: { type: Date },
+      pnl: { type: Number, default: 0 },
+      status: { type: String, enum: ['open', 'closed'], default: 'closed' }
+    }],
+
     // Daywise breakdown
     daywiseResults: [daywiseResultSchema],
   },
