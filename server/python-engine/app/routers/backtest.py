@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException
 from app.engines.backtest_engine.runner import run_backtest
 from app.schemas.backtest import BacktestRequest, BacktestResponse
 
-
 router = APIRouter(prefix="/backtest")
 
 
@@ -14,10 +13,11 @@ def backtest(request: BacktestRequest):
     Run an RSI-based backtest over the provided candle series.
     """
 
+    # ✅ Validate candles
     if not request.candles:
         raise HTTPException(status_code=400, detail="`candles` must be a non-empty list")
 
-    # Convert payload to DataFrame for the backtest engine.
+    # ✅ Convert to DataFrame
     df = pd.DataFrame([c.model_dump() for c in request.candles])
 
     if "close" not in df.columns:
@@ -29,17 +29,24 @@ def backtest(request: BacktestRequest):
     if df.empty:
         raise HTTPException(status_code=400, detail="`close` values must be valid numbers")
 
+    # 🔥 NEW: Extract strategy (SAFE DEFAULTS)
+    strategy = request.strategy or {}
+
+    rsi_period = strategy.get("rsi_period", request.rsi_period)
+    buy_threshold = strategy.get("buy_threshold", request.buy_threshold)
+    sell_threshold = strategy.get("sell_threshold", request.sell_threshold)
+
     try:
         results = run_backtest(
             df,
-            rsi_period=request.rsi_period,
-            buy_threshold=request.buy_threshold,
-            sell_threshold=request.sell_threshold,
+            rsi_period=rsi_period,
+            buy_threshold=buy_threshold,
+            sell_threshold=sell_threshold,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    # Normalize to plain Python types to keep JSON serialization predictable.
+    # ✅ Normalize trades
     trades = []
     for t in results.get("trades", []):
         trades.append(
@@ -59,4 +66,3 @@ def backtest(request: BacktestRequest):
         "max_drawdown": None,
         "trades": trades,
     }
-
