@@ -79,8 +79,10 @@ export default function Backtesting() {
         setError(result.error || 'Backtest failed');
       }
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Error running backtest');
+      const errorMsg = err.response?.data?.error || err.message || 'Error running backtest';
+      setError(errorMsg);
       console.error('Backtest error:', err);
+      console.error('Error details:', err.response?.data);
     } finally {
       setLoading(false);
     }

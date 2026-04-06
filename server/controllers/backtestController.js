@@ -29,7 +29,18 @@ exports.runBacktest = async (req, res) => {
     }
 
     // Verify strategy belongs to user
-    if (strategy.userId !== userId) {
+    if (!strategy.userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Strategy is missing userId. Please recreate the strategy.',
+      });
+    }
+
+    const strategyUserIdStr = String(strategy.userId).trim();
+    const currentUserIdStr = String(userId).trim();
+
+    if (strategyUserIdStr !== currentUserIdStr) {
+      console.log('Access denied:', { strategyUserId: strategyUserIdStr, currentUserId: currentUserIdStr });
       return res.status(403).json({
         success: false,
         error: 'Unauthorized: Strategy does not belong to this user',

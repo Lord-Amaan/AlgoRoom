@@ -30,11 +30,15 @@ def backtest(request: BacktestRequest):
         raise HTTPException(status_code=400, detail="`close` values must be valid numbers")
 
     # 🔥 NEW: Extract strategy (SAFE DEFAULTS)
-    strategy = request.strategy or {}
+    strategy_dict = {}
+    if request.strategy:
+        # Convert Pydantic model to dictionary
+        strategy_dict = request.strategy.model_dump() if hasattr(request.strategy, 'model_dump') else request.strategy.dict()
 
-    rsi_period = strategy.get("rsi_period", request.rsi_period)
-    buy_threshold = strategy.get("buy_threshold", request.buy_threshold)
-    sell_threshold = strategy.get("sell_threshold", request.sell_threshold)
+    # Use defaults for RSI parameters (basic strategy)
+    rsi_period = strategy_dict.get("rsi_period", getattr(request, "rsi_period", 14))
+    buy_threshold = strategy_dict.get("buy_threshold", getattr(request, "buy_threshold", 45))
+    sell_threshold = strategy_dict.get("sell_threshold", getattr(request, "sell_threshold", 55))
 
     try:
         results = run_backtest(
