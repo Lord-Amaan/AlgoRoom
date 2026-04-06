@@ -26,6 +26,14 @@ const backtestSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    instrument: {
+      type: String,
+      required: true,
+    },
+    timeframe: {
+      type: String,
+      default: '1min',
+    },
     status: {
       type: String,
       enum: ['pending', 'running', 'completed', 'failed'],
@@ -53,6 +61,12 @@ const backtestSchema = new mongoose.Schema(
 
     // Daywise breakdown
     daywiseResults: [daywiseResultSchema],
+
+    // Raw results from Python engine
+    rawResults: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   { timestamps: true }
 );

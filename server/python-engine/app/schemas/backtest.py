@@ -59,3 +59,22 @@ class Strategy(BaseModel):
 class BacktestRequest(BaseModel):
     candles: List[Candle]
     strategy: Strategy
+
+
+# ---------- TRADE RESULT ----------
+class TradeResult(BaseModel):
+    entry_price: float
+    exit_price: float
+    profit: float
+    entry_time: Optional[str] = None
+    exit_time: Optional[str] = None
+    legIndex: Optional[int] = 0
+
+
+# ---------- BACKTEST RESPONSE ----------
+class BacktestResponse(BaseModel):
+    pnl: float
+    total_trades: int
+    win_rate: float
+    trades: List[TradeResult]
+    max_drawdown: Optional[float] = 0

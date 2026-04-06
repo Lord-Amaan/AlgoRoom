@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 from app.routers import backtest, health
 
@@ -16,4 +17,8 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(backtest.router)
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
