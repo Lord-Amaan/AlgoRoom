@@ -1,3 +1,3 @@
 # Algoroom — Algorithmic Trading Platform
 
-An algorithmic trading platform for Indian markets 
+An algorithmic trading platform
