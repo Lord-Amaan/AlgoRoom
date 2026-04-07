@@ -41,18 +41,18 @@ const PRESET_INSTRUMENTS = [
 ];
 
 const createEmptyLeg = () => ({
-  qty: 0,
+  qty: 1,
   position: 'BUY',
   optionType: 'CALL',
   expiry: 'WEEKLY',
   strikeCriteria: 'ATM pt',
   strikeType: 'ATM',
   slType: 'SL%',
-  sl: 0,
-  slOnPrice: 'On Price',
+  sl: 5,
+  slOnPrice: 'ENTRY',
   tpType: 'TP%',
-  tp: 0,
-  tpOnPrice: 'On Price',
+  tp: 10,
+  tpOnPrice: 'ENTRY',
   isActive: true,
 });
 
@@ -286,9 +286,44 @@ export default function StrategyBuilder() {
       return;
     }
 
+    if (payload.instruments.length === 0) {
+      setStatus('Please select at least one instrument');
+      return;
+    }
+
     if (!payload.orderConfig.activeDays.length) {
       setStatus('Select at least one active day');
       return;
+    }
+
+    // Validate legs
+    for (let i = 0; i < payload.legs.length; i++) {
+      const leg = payload.legs[i];
+      
+      if (!leg.qty || leg.qty <= 0) {
+        setStatus(`Leg ${i + 1}: Quantity must be greater than 0`);
+        return;
+      }
+      
+      if (leg.qty > 10000) {
+        setStatus(`Leg ${i + 1}: Quantity cannot exceed 10000`);
+        return;
+      }
+
+      if (!leg.position || !leg.optionType || !leg.strikeType) {
+        setStatus(`Leg ${i + 1}: Please fill all required fields`);
+        return;
+      }
+
+      if (leg.sl !== null && leg.sl !== undefined && leg.sl < 0) {
+        setStatus(`Leg ${i + 1}: Stop Loss cannot be negative`);
+        return;
+      }
+
+      if (leg.tp !== null && leg.tp !== undefined && leg.tp < 0) {
+        setStatus(`Leg ${i + 1}: Take Profit cannot be negative`);
+        return;
+      }
     }
 
     try {

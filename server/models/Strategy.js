@@ -18,11 +18,12 @@ const LegSchema = new mongoose.Schema({
 
 const StrategySchema = new mongoose.Schema({
   userId: { type: String, required: true }, // from Clerk
-  name: { type: String },
+  name: { type: String, required: true },
   strategyType: {
     type: String,
     enum: ['TIME_BASED', 'INDICATOR_BASED', 'STOCKS_FUTURES']
   },
+  isActive: { type: Boolean, default: false }, // true when deployed/enabled for trading
   instruments: [{ type: String }],
   orderConfig: {
     type: { type: String, enum: ['MIS', 'CNC', 'BTST'] },
@@ -50,4 +51,8 @@ const StrategySchema = new mongoose.Schema({
     trailSL: Boolean
   }
 }, { timestamps: true });
+
+// Add unique constraint on (userId, name) - no duplicate strategy names per user
+StrategySchema.index({ userId: 1, name: 1 }, { unique: true });
+
 module.exports = mongoose.model('Strategy', StrategySchema);

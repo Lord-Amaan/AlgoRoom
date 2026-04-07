@@ -19,31 +19,69 @@ exports.runBacktest = async (req, res) => {
       });
     }
 
-    // ===== FETCH STRATEGY FROM DB =====
-    const strategy = await Strategy.findById(strategyId);
-    if (!strategy) {
-      return res.status(404).json({
-        success: false,
-        error: 'Strategy not found',
-      });
-    }
+    // ===== DATE VALIDATION =====
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to midnight for fair comparison
 
-    // Verify strategy belongs to user
-    if (!strategy.userId) {
+    // Parse as local dates (YYYY-MM-DD format)
+    const [startYear, startMonth, startDay] = startDate.split('-');
+    const [endYear, endMonth, endDay] = endDate.split('-');
+    
+    const startLocal = new Date(parseInt(startYear), parseInt(startMonth) - 1, parseInt(startDay));
+    const endLocal = new Date(parseInt(endYear), parseInt(endMonth) - 1, parseInt(endDay));
+
+    // Validate date format
+    if (isNaN(startLocal.getTime()) || isNaN(endLocal.getTime())) {
       return res.status(400).json({
         success: false,
-        error: 'Strategy is missing userId. Please recreate the strategy.',
+        error: 'Invalid date format. Use YYYY-MM-DD format.',
       });
     }
 
-    const strategyUserIdStr = String(strategy.userId).trim();
-    const currentUserIdStr = String(userId).trim();
+    // Validate date range
+    if (startLocal > endLocal) {
+      return res.status(400).json({
+        success: false,
+        error: 'startDate cannot be after endDate',
+      });
+    }
 
-    if (strategyUserIdStr !== currentUserIdStr) {
-      console.log('Access denied:', { strategyUserId: strategyUserIdStr, currentUserId: currentUserIdStr });
+    // Prevent backtesting with future dates
+    if (endLocal > today) {
+      return res.status(400).json({
+        success: false,
+        error: `endDate cannot be in the future. Today is ${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
+      });
+    }
+
+    if (startLocal > today) {
+      return res.status(400).json({
+        success: false,
+        error: `startDate cannot be in the future. Today is ${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
+      });
+    }
+
+    // ===== FETCH STRATEGY FROM DB =====
+    // Important: Query by both ID and userId to prevent race conditions
+    const strategy = await Strategy.findOne({
+      _id: strategyId,
+      userId: userId
+    });
+    
+    if (!strategy) {
       return res.status(403).json({
         success: false,
-        error: 'Unauthorized: Strategy does not belong to this user',
+        error: 'Strategy not found or does not belong to you',
+      });
+    }
+
+    // Validate strategy has legs
+    if (!strategy.legs || strategy.legs.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Strategy must have at least one leg configured',
       });
     }
 
@@ -75,13 +113,36 @@ exports.runBacktest = async (req, res) => {
     };
 
     console.log('Calling Python engine at:', `${pythonEngineUrl}/backtest`);
-    const pythonResponse = await fetch(`${pythonEngineUrl}/backtest`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(backTestRequest),
-    });
+    
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    let pythonResponse;
+    try {
+      pythonResponse = await fetch(`${pythonEngineUrl}/backtest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(backTestRequest),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      if (fetchErr.name === 'AbortError') {
+        return res.status(504).json({
+          success: false,
+          error: 'Python engine timed out (30s). Please try again.',
+        });
+      }
+      return res.status(503).json({
+        success: false,
+        error: `Python engine connection failed: ${fetchErr.message}`,
+      });
+    }
+    
+    clearTimeout(timeoutId);
 
     if (!pythonResponse.ok) {
       const errorData = await pythonResponse.text();
@@ -93,7 +154,16 @@ exports.runBacktest = async (req, res) => {
       });
     }
 
-    const backTestResults = await pythonResponse.json();
+    let backTestResults;
+    try {
+      backTestResults = await pythonResponse.json();
+    } catch (jsonErr) {
+      return res.status(503).json({
+        success: false,
+        error: 'Python engine returned invalid JSON',
+        details: jsonErr.message,
+      });
+    }
     console.log('Backtest results received:', {
       pnl: backTestResults.pnl,
       totalTrades: backTestResults.total_trades,

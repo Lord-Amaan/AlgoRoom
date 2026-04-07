@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { strategyService } from '../services/strategyService';
 import StrategyModal from '../components/StrategyModal';
+import { SkeletonStrategyList } from '../components/Skeleton';
 
 export default function Strategies() {
   const navigate = useNavigate();
@@ -147,10 +148,12 @@ export default function Strategies() {
         </div>
 
         {status ? <p className="mb-3 text-sm font-semibold text-[#8c3f3f]">{status}</p> : null}
-        {listLoading ? <p className="text-sm text-[#61718a]">Loading strategies...</p> : null}
-        {!listLoading && !filteredStrategies.length ? <p className="text-sm text-[#61718a]">No strategies found.</p> : null}
+        
+        {listLoading && <SkeletonStrategyList />}
+        {!listLoading && !filteredStrategies.length && <p className="text-sm text-[#61718a]">No strategies found.</p>}
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {!listLoading && filteredStrategies.length > 0 && (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filteredStrategies.map((strategy) => (
             <article
               key={strategy._id}
@@ -176,6 +179,7 @@ export default function Strategies() {
             </article>
           ))}
         </div>
+        )}
       </section>
 
       <StrategyModal

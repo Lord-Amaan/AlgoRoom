@@ -4,6 +4,7 @@ import { strategyService } from '../services/strategyService';
 import BacktestResults from '../components/BacktestResults';
 import EquityCurve from '../components/EquityCurve';
 import PositionCard from '../components/PositionCard';
+import { SkeletonBacktestForm, SkeletonBacktestResults } from '../components/Skeleton';
 
 export default function Backtesting() {
   const [strategies, setStrategies] = useState([]);
@@ -11,6 +12,21 @@ export default function Backtesting() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedResult, setSelectedResult] = useState(null);
+
+  // Get today's date in YYYY-MM-DD format (LOCAL timezone, not UTC)
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Parse date string (YYYY-MM-DD) as local date, not UTC
+  const parseLocalDate = (dateString) => {
+    const [year, month, day] = dateString.split('-');
+    return new Date(year, month - 1, day);
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -40,6 +56,40 @@ export default function Backtesting() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // Date validation for start and end dates
+    if (name === 'startDate' || name === 'endDate') {
+      const selectedDate = parseLocalDate(value);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Prevent future dates
+      if (selectedDate > today) {
+        setError('Cannot select future dates for backtesting');
+        return;
+      }
+      
+      // If endDate, ensure it's not before startDate
+      if (name === 'endDate' && formData.startDate) {
+        const startDate = parseLocalDate(formData.startDate);
+        if (selectedDate < startDate) {
+          setError('End date cannot be before start date');
+          return;
+        }
+      }
+      
+      // If startDate, ensure it's not after endDate
+      if (name === 'startDate' && formData.endDate) {
+        const endDate = parseLocalDate(formData.endDate);
+        if (selectedDate > endDate) {
+          setError('Start date cannot be after end date');
+          return;
+        }
+      }
+      
+      setError(null);
+    }
+    
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -53,6 +103,22 @@ export default function Backtesting() {
     // Validate form
     if (!formData.strategyId || !formData.startDate || !formData.endDate) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    // Final date validation before submission
+    const startDate = parseLocalDate(formData.startDate);
+    const endDate = parseLocalDate(formData.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (startDate > endDate) {
+      setError('Start date cannot be after end date');
+      return;
+    }
+
+    if (endDate > today || startDate > today) {
+      setError('Cannot backtest with future dates');
       return;
     }
 
@@ -98,10 +164,13 @@ export default function Backtesting() {
       </div>
 
       {/* Input Form */}
-      <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-        <h2 className="text-xl font-semibold mb-4">New Backtest</h2>
+      {loading ? (
+        <SkeletonBacktestForm />
+      ) : (
+        <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
+          <h2 className="text-xl font-semibold mb-4">New Backtest</h2>
 
-        <form onSubmit={handleRunBacktest} className="space-y-4">
+          <form onSubmit={handleRunBacktest} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Strategy Selection */}
             <div>
@@ -152,6 +221,7 @@ export default function Backtesting() {
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleInputChange}
+                max={getTodayDate()}
                 className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
                 required
               />
@@ -167,6 +237,7 @@ export default function Backtesting() {
                 name="endDate"
                 value={formData.endDate}
                 onChange={handleInputChange}
+                max={getTodayDate()}
                 className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
                 required
               />
@@ -213,9 +284,12 @@ export default function Backtesting() {
           </button>
         </form>
       </div>
+      )}
 
       {/* Results Section */}
-      {selectedResult && (
+      {selectedResult && loading ? (
+        <SkeletonBacktestResults />
+      ) : selectedResult && (
         <div className="space-y-6">
           {/* Summary Results */}
           <BacktestResults result={selectedResult} />
