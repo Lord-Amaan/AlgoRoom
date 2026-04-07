@@ -47,7 +47,7 @@ An end-to-end algorithmic trading platform allowing users to build, backtest, an
 ### **3. Python Backtest Engine (FastAPI)**
 
 - **Current Capabilities**:
-  - RSI indicator calculation ✅
+  - RSI indicator calculation
   - Basic candle parsing (OHLC)
   - Simple long-only position simulation
   - Trade P&L calculation
@@ -61,7 +61,7 @@ An end-to-end algorithmic trading platform allowing users to build, backtest, an
 
 ---
 
-## **WHAT'S NOT FINISHED ❌**
+## **WHAT'S NOT FINISHED **
 
 ### **CRITICAL (Blocking)**
 
