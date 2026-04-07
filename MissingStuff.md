@@ -4,7 +4,7 @@ An end-to-end algorithmic trading platform allowing users to build, backtest, an
 
 ---
 
-## **WHAT'S BEEN COMPLETED ✅**
+## **WHAT'S BEEN COMPLETED **
 
 ### **1. Frontend (React + Vite)**
 
