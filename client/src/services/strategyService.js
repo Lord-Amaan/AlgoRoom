@@ -2,6 +2,7 @@ import api from './api';
 
 export const strategyService = {
   getAll: () => api.get('/strategies'),
+  getTemplates: () => api.get('/strategies/templates'),
   getById: (id) => api.get(`/strategies/${id}`),
   create: (data) => api.post('/strategies', data),
   update: (id, data) => api.put(`/strategies/${id}`, data),

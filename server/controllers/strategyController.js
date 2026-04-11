@@ -1,4 +1,5 @@
 const Strategy = require('../models/Strategy')
+const StrategyTemplate = require('../models/StrategyTemplate')
 
 exports.getStrategies = async (req, res) => {
   try {
@@ -10,6 +11,15 @@ exports.getStrategies = async (req, res) => {
     const strategies = await Strategy.find({ userId });
     res.status(200).json({ success: true, data: strategies });
 
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.getStrategyTemplates = async (req, res) => {
+  try {
+    const templates = await StrategyTemplate.find({ isPrebuilt: true }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: templates });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
