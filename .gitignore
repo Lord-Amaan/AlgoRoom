@@ -10,6 +10,9 @@ node_modules/
 client/dist/
 server/dist/
 
+# Server OHLC cache (Yahoo Finance)
+server/.cache/
+
 # Logs
 logs/
 *.log
