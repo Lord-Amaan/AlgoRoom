@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react';
-import { runBacktest, getBacktests } from '../services/backtestService';
-import { strategyService } from '../services/strategyService';
+import { useState, useEffect, useCallback } from 'react';
+import { backtestService, strategyService } from '../services/strategyService';
 import BacktestResults from '../components/BacktestResults';
 import EquityCurve from '../components/EquityCurve';
+import DailyPnlChart from '../components/DailyPnlChart';
+import CalendarHeatmap from '../components/CalendarHeatmap';
+import AdvancedMetricsPanel from '../components/AdvancedMetricsPanel';
 import PositionCard from '../components/PositionCard';
-import { SkeletonBacktestForm, SkeletonBacktestResults } from '../components/Skeleton';
 
 export default function Backtesting() {
   const [strategies, setStrategies] = useState([]);
   const [backtests, setBacktests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedResult, setSelectedResult] = useState(null);
 
-  // Get today's date in YYYY-MM-DD format (LOCAL timezone, not UTC)
   const getTodayDate = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -22,13 +23,11 @@ export default function Backtesting() {
     return `${year}-${month}-${day}`;
   };
 
-  // Parse date string (YYYY-MM-DD) as local date, not UTC
   const parseLocalDate = (dateString) => {
     const [year, month, day] = dateString.split('-');
     return new Date(year, month - 1, day);
   };
 
-  // Form state
   const [formData, setFormData] = useState({
     strategyId: '',
     instrument: 'NIFTY',
@@ -37,12 +36,21 @@ export default function Backtesting() {
     timeframe: '1min',
   });
 
-  // Fetch strategies on mount
+  const refreshBacktestsList = useCallback(async () => {
+    try {
+      const backtestsResponse = await backtestService.getAll();
+      const payload = backtestsResponse?.data;
+      const backtestsList = Array.isArray(payload) ? payload : payload?.data || [];
+      setBacktests(backtestsList);
+    } catch (e) {
+      console.error('Failed to refresh backtests', e);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchStrategies = async () => {
       try {
         const response = await strategyService.getAll();
-        // API returns { data: [...] } so we need response.data.data
         const strategiesList = Array.isArray(response.data) ? response.data : response.data?.data || [];
         setStrategies(strategiesList);
       } catch (err) {
@@ -52,24 +60,22 @@ export default function Backtesting() {
     };
 
     fetchStrategies();
-  }, []);
+    refreshBacktestsList();
+  }, [refreshBacktestsList]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
-    // Date validation for start and end dates
+
     if (name === 'startDate' || name === 'endDate') {
       const selectedDate = parseLocalDate(value);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
-      // Prevent future dates
+
       if (selectedDate > today) {
         setError('Cannot select future dates for backtesting');
         return;
       }
-      
-      // If endDate, ensure it's not before startDate
+
       if (name === 'endDate' && formData.startDate) {
         const startDate = parseLocalDate(formData.startDate);
         if (selectedDate < startDate) {
@@ -77,8 +83,7 @@ export default function Backtesting() {
           return;
         }
       }
-      
-      // If startDate, ensure it's not after endDate
+
       if (name === 'startDate' && formData.endDate) {
         const endDate = parseLocalDate(formData.endDate);
         if (selectedDate > endDate) {
@@ -86,10 +91,10 @@ export default function Backtesting() {
           return;
         }
       }
-      
+
       setError(null);
     }
-    
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -100,13 +105,11 @@ export default function Backtesting() {
     e.preventDefault();
     setError(null);
 
-    // Validate form
     if (!formData.strategyId || !formData.startDate || !formData.endDate) {
       setError('Please fill in all required fields');
       return;
     }
 
-    // Final date validation before submission
     const startDate = parseLocalDate(formData.startDate);
     const endDate = parseLocalDate(formData.endDate);
     const today = new Date();
@@ -125,58 +128,85 @@ export default function Backtesting() {
     setLoading(true);
 
     try {
-      const result = await runBacktest(
-        formData.strategyId,
-        formData.startDate,
-        formData.endDate,
-        formData.instrument,
-        formData.timeframe
-      );
+      const payload = {
+        strategyId: formData.strategyId,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        instrument: formData.instrument,
+        timeframe: formData.timeframe,
+      };
 
-      if (result.success) {
-        setSelectedResult(result.data);
-        // Refresh backtests list
-        const backtestsResponse = await getBacktests();
-        const backtestsList = Array.isArray(backtestsResponse.data) 
-          ? backtestsResponse.data 
-          : backtestsResponse.data?.data || [];
-        setBacktests(backtestsList);
+      const response = await backtestService.run(payload);
+      const resultData = response?.data?.data || response?.data;
+
+      if (resultData) {
+        setSelectedResult(resultData);
+        await refreshBacktestsList();
       } else {
-        setError(result.error || 'Backtest failed');
+        setError('Backtest failed');
       }
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || 'Error running backtest';
       setError(errorMsg);
       console.error('Backtest error:', err);
-      console.error('Error details:', err.response?.data);
     } finally {
       setLoading(false);
     }
   };
 
+  const openPastBacktest = async (listItem) => {
+    const id = listItem?.id || listItem?._id;
+    if (!id) return;
+
+    setError(null);
+    setDetailLoading(true);
+
+    try {
+      const response = await backtestService.getById(id);
+      const data = response?.data?.data || response?.data;
+      if (data) {
+        setSelectedResult(data);
+      } else {
+        setError('Failed to load backtest');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to load backtest');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedResult(null);
+    setError(null);
+  };
+
+  const summary = selectedResult?.summary ?? selectedResult?.results ?? null;
+  const equityCurve = selectedResult?.equity_curve ?? selectedResult?.results?.equity_curve ?? [];
+  const dailyPnl = selectedResult?.daily_pnl ?? selectedResult?.results?.daily_pnl ?? [];
+  const calendar = selectedResult?.calendar ?? selectedResult?.results?.calendar ?? {};
+  const advancedMetrics =
+    selectedResult?.advanced_metrics ?? selectedResult?.results?.advanced_metrics ?? {};
+  const trades = selectedResult?.trades ?? selectedResult?.results?.trades ?? [];
+
+  const strategyLabel = selectedResult?.strategy
+    ? `${selectedResult.strategy.name} (${selectedResult.strategy.type || selectedResult.strategy.strategyType || 'N/A'})`
+    : null;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2">Backtesting</h1>
-        <p className="text-dark-400">
-          Run strategies against historical data and analyze results.
-        </p>
+        <p className="text-dark-400">Run strategies against historical data and analyze results.</p>
       </div>
 
-      {/* Input Form */}
-      {loading ? (
-        <SkeletonBacktestForm />
-      ) : (
-        <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-          <h2 className="text-xl font-semibold mb-4">New Backtest</h2>
+      <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
+        <h2 className="text-xl font-semibold mb-4">New Backtest</h2>
 
-          <form onSubmit={handleRunBacktest} className="space-y-4">
+        <form onSubmit={handleRunBacktest} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Strategy Selection */}
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
-                Strategy *
-              </label>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Strategy *</label>
               <select
                 name="strategyId"
                 value={formData.strategyId}
@@ -193,11 +223,8 @@ export default function Backtesting() {
               </select>
             </div>
 
-            {/* Instrument Selection */}
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
-                Instrument
-              </label>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Instrument</label>
               <select
                 name="instrument"
                 value={formData.instrument}
@@ -211,11 +238,8 @@ export default function Backtesting() {
               </select>
             </div>
 
-            {/* Start Date */}
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
-                Start Date *
-              </label>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Start Date *</label>
               <input
                 type="date"
                 name="startDate"
@@ -227,11 +251,8 @@ export default function Backtesting() {
               />
             </div>
 
-            {/* End Date */}
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
-                End Date *
-              </label>
+              <label className="block text-sm font-medium text-dark-300 mb-2">End Date *</label>
               <input
                 type="date"
                 name="endDate"
@@ -243,11 +264,8 @@ export default function Backtesting() {
               />
             </div>
 
-            {/* Timeframe */}
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
-                Timeframe
-              </label>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Timeframe</label>
               <select
                 name="timeframe"
                 value={formData.timeframe}
@@ -263,14 +281,12 @@ export default function Backtesting() {
             </div>
           </div>
 
-          {/* Error Message */}
-          {error && (
+          {error && !selectedResult && (
             <div className="p-4 bg-red-900 bg-opacity-20 border border-red-600 rounded-lg text-red-400 text-sm">
               {error}
             </div>
           )}
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
@@ -284,63 +300,108 @@ export default function Backtesting() {
           </button>
         </form>
       </div>
-      )}
 
-      {/* Results Section */}
-      {selectedResult && loading ? (
-        <SkeletonBacktestResults />
-      ) : selectedResult && (
-        <div className="space-y-6">
-          {/* Summary Results */}
-          <BacktestResults result={selectedResult} />
-
-          {/* Equity Curve Chart */}
-          <EquityCurve trades={selectedResult.trades} />
-
-          {/* Individual Trades */}
-          <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-            <h3 className="text-lg font-semibold mb-4">Trades ({selectedResult.trades?.length || 0})</h3>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {selectedResult.trades && selectedResult.trades.length > 0 ? (
-                selectedResult.trades.map((trade, idx) => (
-                  <PositionCard key={idx} trade={trade} index={idx + 1} />
-                ))
-              ) : (
-                <p className="text-dark-400 text-sm">No trades executed.</p>
-              )}
-            </div>
+      {selectedResult && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-4 py-2 text-sm bg-dark-700 border border-dark-600 rounded-lg text-white hover:border-blue-500 transition"
+            >
+              ← Back to list
+            </button>
+            {detailLoading && <span className="text-sm text-dark-400">Loading backtest...</span>}
           </div>
+
+          {error && (
+            <div className="p-4 bg-red-900 bg-opacity-20 border border-red-600 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          {detailLoading ? (
+            <div className="bg-dark-800 p-6 rounded-xl border border-dark-700 text-dark-400 text-sm">
+              Loading results...
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <BacktestResults
+                summary={summary}
+                createdAt={selectedResult.createdAt}
+                strategyLabel={strategyLabel}
+              />
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <EquityCurve equityCurve={equityCurve} summary={summary} />
+                <DailyPnlChart dailyPnl={dailyPnl} />
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <CalendarHeatmap calendar={calendar} />
+                <AdvancedMetricsPanel advancedMetrics={advancedMetrics} />
+              </div>
+
+              <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
+                <h3 className="text-lg font-semibold mb-4">Trades ({trades.length})</h3>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {trades.length > 0 ? (
+                    trades.map((trade, idx) => (
+                      <PositionCard key={trade.id ?? idx} trade={trade} index={idx + 1} />
+                    ))
+                  ) : (
+                    <p className="text-dark-400 text-sm">No trades executed.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Past Backtests */}
       {backtests.length > 0 && !selectedResult && (
         <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
           <h3 className="text-lg font-semibold mb-4">Past Backtests</h3>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {backtests.map((backtest) => (
-              <div
-                key={backtest.id}
-                onClick={() => setSelectedResult(backtest)}
-                className="p-4 bg-dark-700 rounded-lg cursor-pointer hover:bg-dark-600 transition border border-dark-600 hover:border-blue-500"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-semibold text-white">{backtest.strategyName}</p>
-                    <p className="text-sm text-dark-400">
-                      {backtest.instrument} • {new Date(backtest.dateRange.start).toLocaleDateString()} to{' '}
-                      {new Date(backtest.dateRange.end).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${backtest.results.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {backtest.results.pnl > 0 ? '+' : ''}{backtest.results.pnl.toFixed(2)}
-                    </p>
-                    <p className="text-sm text-dark-400">{backtest.results.totalTrades} trades</p>
+            {backtests.map((backtest, idx) => {
+              const id = backtest.id || backtest._id || idx;
+              const resultNode = backtest.results || backtest.summary || {};
+              const pnl = resultNode.total_pnl ?? backtest.total_pnl ?? 0;
+              const nTrades = resultNode.total_trades ?? backtest.total_trades ?? 0;
+              const strategyName = backtest.strategyName || backtest.strategy?.name || 'Strategy';
+              const start = backtest.dateRange?.start || backtest.startDate;
+              const end = backtest.dateRange?.end || backtest.endDate;
+
+              return (
+                <div
+                  key={id}
+                  onClick={() => openPastBacktest(backtest)}
+                  onKeyDown={(e) => e.key === 'Enter' && openPastBacktest(backtest)}
+                  role="button"
+                  tabIndex={0}
+                  className="p-4 bg-dark-700 rounded-lg cursor-pointer hover:bg-dark-600 transition border border-dark-600 hover:border-blue-500"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold text-white">{strategyName}</p>
+                      <p className="text-sm text-dark-400">
+                        {backtest.instrument || 'N/A'}
+                        {start && end
+                          ? ` • ${new Date(start).toLocaleDateString()} to ${new Date(end).toLocaleDateString()}`
+                          : ''}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {pnl > 0 ? '+' : ''}
+                        {Number(pnl).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-sm text-dark-400">{nTrades} trades</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

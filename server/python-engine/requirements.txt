@@ -1,5 +1,11 @@
+# Python 3.13 + raptorbt (PyO3): on Windows/macOS/Linux you may need:
+#   set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+# before: pip install raptorbt
+# Prefer Python 3.12 if native wheels are unavailable.
+
 fastapi
 uvicorn
 pandas
 numpy
 pytest
+raptorbt

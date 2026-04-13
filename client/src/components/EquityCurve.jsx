@@ -1,46 +1,44 @@
-export default function EquityCurve({ trades = [] }) {
-  if (!trades || trades.length === 0) {
+/**
+ * Renders backend-computed equity_curve only (cumulative_pnl per point).
+ */
+export default function EquityCurve({ equityCurve = [], summary }) {
+  const winningTrades = summary?.winning_trades;
+  const losingTrades = summary?.losing_trades;
+  const breakevenTrades = summary?.breakeven_trades;
+
+  if (!equityCurve || equityCurve.length === 0) {
     return (
       <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
         <h3 className="text-lg font-semibold mb-4">Equity Curve</h3>
-        <p className="text-dark-500 text-sm">No trades to display.</p>
+        <p className="text-dark-500 text-sm">No equity points to display.</p>
       </div>
     );
   }
 
-  // Calculate cumulative PnL
-  let cumulativePnL = 0;
-  const equityCurveData = trades.map((trade) => {
-    cumulativePnL += trade.pnl || 0;
-    return {
-      trade: trade,
-      pnl: cumulativePnL,
-    };
-  });
-
-  // Find min and max for scaling
-  const pnlValues = equityCurveData.map((d) => d.pnl);
+  const pnlValues = equityCurve.map((d) => Number(d.cumulative_pnl ?? 0));
   const minPnL = Math.min(...pnlValues, 0);
   const maxPnL = Math.max(...pnlValues, 0);
   const range = maxPnL - minPnL || 1;
 
-  // Chart dimensions
   const chartHeight = 250;
   const chartWidth = 100;
-  const points = equityCurveData.map((d, idx) => {
-    const x = (idx / (equityCurveData.length - 1 || 1)) * chartWidth;
-    const y = chartHeight - ((d.pnl - minPnL) / range) * chartHeight;
-    return { x, y, pnl: d.pnl };
+  const points = equityCurve.map((d, idx) => {
+    const pnl = Number(d.cumulative_pnl ?? 0);
+    const x = (idx / (equityCurve.length - 1 || 1)) * chartWidth;
+    const y = chartHeight - ((pnl - minPnL) / range) * chartHeight;
+    return { x, y, pnl };
   });
 
-  // Generate SVG path
   const pathData = points
     .map((point, idx) => `${idx === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
     .join(' ');
 
+  const finalPnl = pnlValues[pnlValues.length - 1] ?? 0;
+
   return (
     <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
       <h3 className="text-lg font-semibold mb-4">Equity Curve</h3>
+      <p className="text-xs text-dark-500 mb-2">Cumulative P&amp;L (backend, exit-time order)</p>
 
       <div className="flex flex-col items-center">
         <svg
@@ -48,26 +46,16 @@ export default function EquityCurve({ trades = [] }) {
           className="w-full h-64 border border-dark-600 rounded"
           style={{ backgroundColor: '#1a1a2e' }}
         >
-          {/* Grid lines */}
           <line
             x1="0"
-            y1={chartHeight/2}
+            y1={chartHeight / 2}
             x2={chartWidth}
-            y2={chartHeight/2}
+            y2={chartHeight / 2}
             stroke="#444"
             strokeDasharray="4"
             strokeWidth="0.5"
           />
-
-          {/* Equity curve line */}
-          <path
-            d={pathData}
-            fill="none"
-            stroke="#3b82f6"
-            strokeWidth="1.5"
-          />
-
-          {/* Points on curve */}
+          <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="1.5" />
           {points.map((point, idx) => (
             <circle
               key={idx}
@@ -79,42 +67,38 @@ export default function EquityCurve({ trades = [] }) {
           ))}
         </svg>
 
-        {/* Legend */}
         <div className="mt-4 text-sm text-dark-400 space-y-2 w-full">
           <div className="flex justify-between items-center">
-            <span>Starting Capital: 0</span>
-            <span className="font-semibold text-green-400">
-              Final: +{(equityCurveData[equityCurveData.length - 1]?.pnl || 0).toFixed(2)}
+            <span>Start: ₹ 0.00</span>
+            <span className={`font-semibold ${finalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              Final cumulative:{' '}
+              {finalPnl >= 0 ? '+' : ''}
+              {finalPnl.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span>Min: {minPnL.toFixed(2)}</span>
-            <span>Max: {maxPnL.toFixed(2)}</span>
+            <span>Min: {minPnL.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+            <span>Max: {maxPnL.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
           </div>
         </div>
       </div>
 
-      {/* Trade Statistics */}
-      <div className="mt-6 grid grid-cols-3 gap-4 text-center text-sm">
-        <div className="p-3 bg-dark-700 rounded">
-          <p className="text-dark-400 mb-1">Winning Trades</p>
-          <p className="text-green-400 font-semibold">
-            {trades.filter((t) => (t.pnl || 0) > 0).length}
-          </p>
+      {winningTrades != null && (
+        <div className="mt-6 grid grid-cols-3 gap-4 text-center text-sm">
+          <div className="p-3 bg-dark-700 rounded">
+            <p className="text-dark-400 mb-1">Winning Trades</p>
+            <p className="text-green-400 font-semibold">{winningTrades}</p>
+          </div>
+          <div className="p-3 bg-dark-700 rounded">
+            <p className="text-dark-400 mb-1">Losing Trades</p>
+            <p className="text-red-400 font-semibold">{losingTrades ?? '—'}</p>
+          </div>
+          <div className="p-3 bg-dark-700 rounded">
+            <p className="text-dark-400 mb-1">Break Even</p>
+            <p className="text-blue-400 font-semibold">{breakevenTrades ?? '—'}</p>
+          </div>
         </div>
-        <div className="p-3 bg-dark-700 rounded">
-          <p className="text-dark-400 mb-1">Losing Trades</p>
-          <p className="text-red-400 font-semibold">
-            {trades.filter((t) => (t.pnl || 0) < 0).length}
-          </p>
-        </div>
-        <div className="p-3 bg-dark-700 rounded">
-          <p className="text-dark-400 mb-1">Break Even</p>
-          <p className="text-blue-400 font-semibold">
-            {trades.filter((t) => (t.pnl || 0) === 0).length}
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
