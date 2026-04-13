@@ -9,13 +9,27 @@ const { getOHLCData } = require('../utils/dataProvider');
 exports.runBacktest = async (req, res) => {
   try {
     const userId = req.auth.userId; // From Clerk auth
-    const { strategyId, instrument, startDate, endDate, timeframe = '1min' } = req.body;
+    const {
+      strategyId,
+      instrument,
+      instruments,
+      startDate,
+      endDate,
+      timeframe = '1min',
+    } = req.body;
+
+    const selectedInstruments = Array.isArray(instruments)
+      ? instruments.filter(Boolean)
+      : instrument
+        ? [instrument]
+        : [];
+    const primaryInstrument = selectedInstruments[0] || null;
 
     // ===== VALIDATION =====
-    if (!strategyId || !instrument || !startDate || !endDate) {
+    if (!strategyId || !primaryInstrument || !startDate || !endDate) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: strategyId, instrument, startDate, endDate',
+        error: 'Missing required fields: strategyId, instrument(s), startDate, endDate',
       });
     }
 
@@ -86,8 +100,8 @@ exports.runBacktest = async (req, res) => {
     }
 
     // ===== FETCH OHLC DATA =====
-    console.log(`Fetching OHLC data for ${instrument} from ${startDate} to ${endDate}`);
-    const candles = await getOHLCData(instrument, startDate, endDate, timeframe);
+    console.log(`Fetching OHLC data for ${primaryInstrument} from ${startDate} to ${endDate}`);
+    const candles = await getOHLCData(primaryInstrument, startDate, endDate, timeframe);
 
     if (!candles || candles.length === 0) {
       return res.status(400).json({
@@ -176,14 +190,14 @@ exports.runBacktest = async (req, res) => {
       strategy: strategyId,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
-      instrument,
+      instruments: selectedInstruments,
       timeframe,
       status: 'completed',
       totalPnl: backTestResults.pnl || 0,
       totalTrades: backTestResults.total_trades || 0,
       winRate: backTestResults.win_rate || 0,
       maxDrawdown: backTestResults.max_drawdown || 0,
-      trades: (backTestResults.trades || []).map((trade, idx) => ({
+      tradeLog: (backTestResults.trades || []).map((trade, idx) => ({
         legIndex: trade.legIndex || 0,
         entryPrice: trade.entry_price || 0,
         exitPrice: trade.exit_price || 0,
@@ -207,7 +221,10 @@ exports.runBacktest = async (req, res) => {
         totalTrades: backtest.totalTrades,
         winRate: backtest.winRate,
         maxDrawdown: backtest.maxDrawdown,
-        trades: backtest.trades,
+        instrument: backtest.instruments?.[0] || null,
+        instruments: backtest.instruments || [],
+        trades: backtest.tradeLog,
+        tradeLog: backtest.tradeLog,
         createdAt: backtest.createdAt,
       },
     });
@@ -240,7 +257,8 @@ exports.getBacktests = async (req, res) => {
         id: bt._id,
         strategyName: bt.strategy?.name || 'Unknown Strategy',
         strategyType: bt.strategy?.strategyType || 'N/A',
-        instrument: bt.instrument,
+        instrument: (bt.instruments && bt.instruments[0]) || bt.instrument || null,
+        instruments: bt.instruments || (bt.instrument ? [bt.instrument] : []),
         dateRange: {
           start: bt.startDate,
           end: bt.endDate,
@@ -300,7 +318,8 @@ exports.getBacktest = async (req, res) => {
           name: backtest.strategy.name,
           type: backtest.strategy.strategyType,
         },
-        instrument: backtest.instrument,
+        instrument: (backtest.instruments && backtest.instruments[0]) || backtest.instrument || null,
+        instruments: backtest.instruments || (backtest.instrument ? [backtest.instrument] : []),
         dateRange: {
           start: backtest.startDate,
           end: backtest.endDate,
@@ -312,7 +331,8 @@ exports.getBacktest = async (req, res) => {
           maxDrawdown: backtest.maxDrawdown,
           maxProfit: backtest.maxProfit,
         },
-        trades: backtest.trades,
+        trades: backtest.tradeLog,
+        tradeLog: backtest.tradeLog,
         status: backtest.status,
         createdAt: backtest.createdAt,
       },

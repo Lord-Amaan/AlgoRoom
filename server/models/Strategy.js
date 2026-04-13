@@ -52,7 +52,7 @@ const StrategySchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Add unique constraint on (userId, name) - no duplicate strategy names per user
+// Added unique constraint on (userId, name) - no duplicate strategy names per user
 StrategySchema.index({ userId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('Strategy', StrategySchema);
