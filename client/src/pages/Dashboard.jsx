@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser, useAuth } from '@clerk/clerk-react'; 
 import api from '../services/api';
+import { SkeletonStats, SkeletonStrategyList } from '../components/Skeleton';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -50,24 +51,28 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-gray-500 text-sm">Total Strategies</p>
-          <p className="text-2xl font-bold mt-1">{strategies.length}</p>
+      {loading ? (
+        <SkeletonStats />
+      ) : (
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-xl p-4 shadow-sm border">
+            <p className="text-gray-500 text-sm">Total Strategies</p>
+            <p className="text-2xl font-bold mt-1">{strategies.length}</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm border">
+            <p className="text-gray-500 text-sm">Active Strategies</p>
+            <p className="text-2xl font-bold mt-1">
+              {strategies?.filter(s => s.isActive === true).length || 0}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm border">
+            <p className="text-gray-500 text-sm">Total Legs</p>
+            <p className="text-2xl font-bold mt-1">
+              {strategies.reduce((acc, s) => acc + (s.legs?.length || 0), 0)}
+            </p>
+          </div>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-gray-500 text-sm">Active Strategies</p>
-          <p className="text-2xl font-bold mt-1">
-            {strategies.filter(s => s.isActive).length}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-gray-500 text-sm">Total Legs</p>
-          <p className="text-2xl font-bold mt-1">
-            {strategies.reduce((acc, s) => acc + (s.legs?.length || 0), 0)}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Strategies List */}
       <div>
@@ -82,13 +87,13 @@ export default function Dashboard() {
         </div>
 
         {/* Loading */}
-        {loading && (
-          <p className="text-gray-400 text-sm">Loading strategies...</p>
-        )}
+        {loading && <SkeletonStrategyList />}
 
         {/* Error */}
         {error && (
-          <p className="text-red-500 text-sm">{error}</p>
+          <div className="p-4 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
         )}
 
         {/* Empty */}

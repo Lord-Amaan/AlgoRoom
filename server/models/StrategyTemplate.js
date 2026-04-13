@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
 
+// Reuse same LegSchema structure
 const LegSchema = new mongoose.Schema({
-  qty: { type: Number, default: 0 },
+  qty: { type: Number, default: 1 },
   position: { type: String, enum: ['BUY', 'SELL'] },
   optionType: { type: String, enum: ['CALL', 'PUT'] },
   expiry: { type: String, enum: ['WEEKLY', 'MONTHLY'] },
-  strikeCriteria: { type: String }, // e.g. "ATM pt"
+  strikeCriteria: { type: String },
   strikeType: { type: String, enum: ['ATM', 'OTM_1', 'OTM_2', 'OTM_3', 'ITM_1', 'ITM_2'] },
   slType: { type: String, enum: ['SL%', 'SL_POINTS'] },
   sl: { type: Number },
@@ -16,20 +17,28 @@ const LegSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 });
 
-const StrategySchema = new mongoose.Schema({
-  userId: { type: String, required: true }, // from Clerk
-  name: { type: String, required: true },
+const StrategyTemplateSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  description: { type: String },
+  category: {
+    type: String,
+    enum: ['NEUTRAL', 'BULLISH', 'BEARISH', 'VOLATILE'],
+    required: true
+  },
+  riskProfile: {
+    type: String,
+    enum: ['LOW', 'MEDIUM', 'HIGH']
+  },
+  instruments: [{ type: String }],
   strategyType: {
     type: String,
     enum: ['TIME_BASED', 'INDICATOR_BASED', 'STOCKS_FUTURES']
   },
-  isActive: { type: Boolean, default: false }, // true when deployed/enabled for trading
-  instruments: [{ type: String }],
   orderConfig: {
     type: { type: String, enum: ['MIS', 'CNC', 'BTST'] },
-    startTime: String,   // "09:16"
-    squareOff: String,   // "15:15"
-    activeDays: [{ type: String, enum: ['MON','TUE','WED','THU','FRI'] }]
+    startTime: String,
+    squareOff: String,
+    activeDays: [{ type: String, enum: ['MON', 'TUE', 'WED', 'THU', 'FRI'] }]
   },
   legs: [LegSchema],
   riskManagement: {
@@ -49,10 +58,8 @@ const StrategySchema = new mongoose.Schema({
     premiumDifference: Boolean,
     reEntryExecute: Boolean,
     trailSL: Boolean
-  }
+  },
+  isPrebuilt: { type: Boolean, default: true }
 }, { timestamps: true });
 
-// Added unique constraint on (userId, name) - no duplicate strategy names per user
-StrategySchema.index({ userId: 1, name: 1 }, { unique: true });
-
-module.exports = mongoose.model('Strategy', StrategySchema);
+module.exports = mongoose.model('StrategyTemplate', StrategyTemplateSchema);

@@ -1,9 +1,8 @@
-const { getAuth } = require('@clerk/express');
 const {upsertUser} = require('../services/userService')
 exports.getMe = async (req, res) => {
   try {
-    // Read the user id from the verified Clerk token in this request.
-    const { userId } = getAuth(req);
+    // Get userId from req.auth (set by protect middleware)
+    const userId = req.auth?.userId;
 
     const user = await upsertUser(userId);
     res.status(200).json({ userId, user });
