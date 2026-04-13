@@ -1,20 +1,11 @@
-<<<<<<< Updated upstream
-export default function Backtesting() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Backtesting</h1>
-      <p className="text-dark-400">Run strategies against historical data and analyze results.</p>
-=======
 import { useState, useEffect, useCallback } from 'react';
-import { runBacktest, getBacktests, getBacktestById } from '../services/backtestService';
-import { strategyService } from '../services/strategyService';
+import { backtestService, strategyService } from '../services/strategyService';
 import BacktestResults from '../components/BacktestResults';
 import EquityCurve from '../components/EquityCurve';
 import DailyPnlChart from '../components/DailyPnlChart';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import AdvancedMetricsPanel from '../components/AdvancedMetricsPanel';
 import PositionCard from '../components/PositionCard';
-import { SkeletonBacktestForm, SkeletonBacktestResults } from '../components/Skeleton';
 
 export default function Backtesting() {
   const [strategies, setStrategies] = useState([]);
@@ -47,10 +38,9 @@ export default function Backtesting() {
 
   const refreshBacktestsList = useCallback(async () => {
     try {
-      const backtestsResponse = await getBacktests();
-      const backtestsList = Array.isArray(backtestsResponse.data)
-        ? backtestsResponse.data
-        : backtestsResponse.data?.data || [];
+      const backtestsResponse = await backtestService.getAll();
+      const payload = backtestsResponse?.data;
+      const backtestsList = Array.isArray(payload) ? payload : payload?.data || [];
       setBacktests(backtestsList);
     } catch (e) {
       console.error('Failed to refresh backtests', e);
@@ -138,19 +128,22 @@ export default function Backtesting() {
     setLoading(true);
 
     try {
-      const result = await runBacktest(
-        formData.strategyId,
-        formData.startDate,
-        formData.endDate,
-        formData.instrument,
-        formData.timeframe
-      );
+      const payload = {
+        strategyId: formData.strategyId,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        instrument: formData.instrument,
+        timeframe: formData.timeframe,
+      };
 
-      if (result.success && result.data) {
-        setSelectedResult(result.data);
+      const response = await backtestService.run(payload);
+      const resultData = response?.data?.data || response?.data;
+
+      if (resultData) {
+        setSelectedResult(resultData);
         await refreshBacktestsList();
       } else {
-        setError(result.error || 'Backtest failed');
+        setError('Backtest failed');
       }
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || 'Error running backtest';
@@ -162,15 +155,19 @@ export default function Backtesting() {
   };
 
   const openPastBacktest = async (listItem) => {
-    if (!listItem?.id) return;
+    const id = listItem?.id || listItem?._id;
+    if (!id) return;
+
     setError(null);
     setDetailLoading(true);
+
     try {
-      const res = await getBacktestById(listItem.id);
-      if (res.success && res.data) {
-        setSelectedResult(res.data);
+      const response = await backtestService.getById(id);
+      const data = response?.data?.data || response?.data;
+      if (data) {
+        setSelectedResult(data);
       } else {
-        setError(res.error || 'Failed to load backtest');
+        setError('Failed to load backtest');
       }
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to load backtest');
@@ -184,130 +181,125 @@ export default function Backtesting() {
     setError(null);
   };
 
-  const summary = selectedResult?.summary;
-  const equityCurve = selectedResult?.equity_curve ?? [];
-  const dailyPnl = selectedResult?.daily_pnl ?? [];
-  const calendar = selectedResult?.calendar ?? {};
-  const advancedMetrics = selectedResult?.advanced_metrics ?? {};
-  const trades = selectedResult?.trades ?? [];
+  const summary = selectedResult?.summary ?? selectedResult?.results ?? null;
+  const equityCurve = selectedResult?.equity_curve ?? selectedResult?.results?.equity_curve ?? [];
+  const dailyPnl = selectedResult?.daily_pnl ?? selectedResult?.results?.daily_pnl ?? [];
+  const calendar = selectedResult?.calendar ?? selectedResult?.results?.calendar ?? {};
+  const advancedMetrics =
+    selectedResult?.advanced_metrics ?? selectedResult?.results?.advanced_metrics ?? {};
+  const trades = selectedResult?.trades ?? selectedResult?.results?.trades ?? [];
 
   const strategyLabel = selectedResult?.strategy
-    ? `${selectedResult.strategy.name} (${selectedResult.strategy.type})`
+    ? `${selectedResult.strategy.name} (${selectedResult.strategy.type || selectedResult.strategy.strategyType || 'N/A'})`
     : null;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2">Backtesting</h1>
-        <p className="text-dark-400">
-          Run strategies against historical data and analyze results.
-        </p>
+        <p className="text-dark-400">Run strategies against historical data and analyze results.</p>
       </div>
 
-      {loading ? (
-        <SkeletonBacktestForm />
-      ) : (
-        <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-          <h2 className="text-xl font-semibold mb-4">New Backtest</h2>
+      <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
+        <h2 className="text-xl font-semibold mb-4">New Backtest</h2>
 
-          <form onSubmit={handleRunBacktest} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">Strategy *</label>
-                <select
-                  name="strategyId"
-                  value={formData.strategyId}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
-                  required
-                >
-                  <option value="">Select a strategy</option>
-                  {(strategies || []).map((strategy) => (
-                    <option key={strategy._id} value={strategy._id}>
-                      {strategy.name} ({strategy.strategyType})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">Instrument</label>
-                <select
-                  name="instrument"
-                  value={formData.instrument}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
-                >
-                  <option value="NIFTY">NIFTY</option>
-                  <option value="BANKNIFTY">BANKNIFTY</option>
-                  <option value="FINNIFTY">FINNIFTY</option>
-                  <option value="GOLDBEES">GOLDBEES</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">Start Date *</label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  max={getTodayDate()}
-                  className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">End Date *</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  max={getTodayDate()}
-                  className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">Timeframe</label>
-                <select
-                  name="timeframe"
-                  value={formData.timeframe}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
-                >
-                  <option value="1min">1 Minute</option>
-                  <option value="5min">5 Minutes</option>
-                  <option value="15min">15 Minutes</option>
-                  <option value="1hour">1 Hour</option>
-                  <option value="1day">1 Day</option>
-                </select>
-              </div>
+        <form onSubmit={handleRunBacktest} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Strategy *</label>
+              <select
+                name="strategyId"
+                value={formData.strategyId}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                required
+              >
+                <option value="">Select a strategy</option>
+                {(strategies || []).map((strategy) => (
+                  <option key={strategy._id} value={strategy._id}>
+                    {strategy.name} ({strategy.strategyType})
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {error && !selectedResult && (
-              <div className="p-4 bg-red-900 bg-opacity-20 border border-red-600 rounded-lg text-red-400 text-sm">
-                {error}
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Instrument</label>
+              <select
+                name="instrument"
+                value={formData.instrument}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+              >
+                <option value="NIFTY">NIFTY</option>
+                <option value="BANKNIFTY">BANKNIFTY</option>
+                <option value="FINNIFTY">FINNIFTY</option>
+                <option value="GOLDBEES">GOLDBEES</option>
+              </select>
+            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full px-6 py-3 rounded-lg font-semibold transition ${
-                loading
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
-              }`}
-            >
-              {loading ? 'Running Backtest...' : 'Run Backtest'}
-            </button>
-          </form>
-        </div>
-      )}
+            <div>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Start Date *</label>
+              <input
+                type="date"
+                name="startDate"
+                value={formData.startDate}
+                onChange={handleInputChange}
+                max={getTodayDate()}
+                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-dark-300 mb-2">End Date *</label>
+              <input
+                type="date"
+                name="endDate"
+                value={formData.endDate}
+                onChange={handleInputChange}
+                max={getTodayDate()}
+                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Timeframe</label>
+              <select
+                name="timeframe"
+                value={formData.timeframe}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+              >
+                <option value="1min">1 Minute</option>
+                <option value="5min">5 Minutes</option>
+                <option value="15min">15 Minutes</option>
+                <option value="1hour">1 Hour</option>
+                <option value="1day">1 Day</option>
+              </select>
+            </div>
+          </div>
+
+          {error && !selectedResult && (
+            <div className="p-4 bg-red-900 bg-opacity-20 border border-red-600 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full px-6 py-3 rounded-lg font-semibold transition ${
+              loading
+                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+            }`}
+          >
+            {loading ? 'Running Backtest...' : 'Run Backtest'}
+          </button>
+        </form>
+      </div>
 
       {selectedResult && (
         <div className="space-y-4">
@@ -319,9 +311,7 @@ export default function Backtesting() {
             >
               ← Back to list
             </button>
-            {detailLoading && (
-              <span className="text-sm text-dark-400">Loading backtest…</span>
-            )}
+            {detailLoading && <span className="text-sm text-dark-400">Loading backtest...</span>}
           </div>
 
           {error && (
@@ -331,7 +321,9 @@ export default function Backtesting() {
           )}
 
           {detailLoading ? (
-            <SkeletonBacktestResults />
+            <div className="bg-dark-800 p-6 rounded-xl border border-dark-700 text-dark-400 text-sm">
+              Loading results...
+            </div>
           ) : (
             <div className="space-y-6">
               <BacktestResults
@@ -371,12 +363,18 @@ export default function Backtesting() {
         <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
           <h3 className="text-lg font-semibold mb-4">Past Backtests</h3>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {backtests.map((backtest) => {
-              const pnl = backtest.results?.total_pnl ?? 0;
-              const nTrades = backtest.results?.total_trades ?? 0;
+            {backtests.map((backtest, idx) => {
+              const id = backtest.id || backtest._id || idx;
+              const resultNode = backtest.results || backtest.summary || {};
+              const pnl = resultNode.total_pnl ?? backtest.total_pnl ?? 0;
+              const nTrades = resultNode.total_trades ?? backtest.total_trades ?? 0;
+              const strategyName = backtest.strategyName || backtest.strategy?.name || 'Strategy';
+              const start = backtest.dateRange?.start || backtest.startDate;
+              const end = backtest.dateRange?.end || backtest.endDate;
+
               return (
                 <div
-                  key={backtest.id}
+                  key={id}
                   onClick={() => openPastBacktest(backtest)}
                   onKeyDown={(e) => e.key === 'Enter' && openPastBacktest(backtest)}
                   role="button"
@@ -385,16 +383,16 @@ export default function Backtesting() {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-semibold text-white">{backtest.strategyName}</p>
+                      <p className="font-semibold text-white">{strategyName}</p>
                       <p className="text-sm text-dark-400">
-                        {backtest.instrument} • {new Date(backtest.dateRange.start).toLocaleDateString()}{' '}
-                        to {new Date(backtest.dateRange.end).toLocaleDateString()}
+                        {backtest.instrument || 'N/A'}
+                        {start && end
+                          ? ` • ${new Date(start).toLocaleDateString()} to ${new Date(end).toLocaleDateString()}`
+                          : ''}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p
-                        className={`font-semibold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}
-                      >
+                      <p className={`font-semibold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {pnl > 0 ? '+' : ''}
                         {Number(pnl).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </p>
@@ -407,7 +405,6 @@ export default function Backtesting() {
           </div>
         </div>
       )}
->>>>>>> Stashed changes
     </div>
   );
 }

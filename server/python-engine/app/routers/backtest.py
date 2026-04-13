@@ -30,14 +30,6 @@ def backtest(request: BacktestRequest):
     if df.empty:
         raise HTTPException(status_code=400, detail="`close` values must be valid numbers")
 
-<<<<<<< Updated upstream
-    # 🔥 NEW: Extract strategy (SAFE DEFAULTS)
-    strategy = request.strategy or {}
-
-    rsi_period = strategy.get("rsi_period", request.rsi_period)
-    buy_threshold = strategy.get("buy_threshold", request.buy_threshold)
-    sell_threshold = strategy.get("sell_threshold", request.sell_threshold)
-=======
     strategy_dict: dict = {}
     if request.strategy:
         strategy_dict = (
@@ -45,7 +37,6 @@ def backtest(request: BacktestRequest):
             if hasattr(request.strategy, "model_dump")
             else request.strategy.dict()
         )
->>>>>>> Stashed changes
 
     try:
         results = run_raptor_engine(df, strategy_dict)

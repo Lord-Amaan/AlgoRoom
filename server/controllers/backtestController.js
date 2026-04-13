@@ -1,18 +1,8 @@
-<<<<<<< Updated upstream
-exports.runBacktest = async (req, res) => {
-  res.status(200).json({ message: 'Run backtest - not implemented' });
-};
-
-exports.getBacktests = async (req, res) => {
-  res.status(200).json({ message: 'Get backtests - not implemented' });
-};
-
-exports.getBacktest = async (req, res) => {
-  res.status(200).json({ message: 'Get backtest - not implemented' });
-=======
 const Strategy = require('../models/Strategy');
 const Backtest = require('../models/Backtest');
 const { getOHLCData } = require('../utils/dataProvider');
+const { getAuth } = require('../middleware/auth');
+const mongoose = require('mongoose');
 
 /**
  * Extract analytics arrays/objects from Python (or stored rawResults).
@@ -104,13 +94,23 @@ function buildDashboardData(backtestDoc) {
  */
 exports.runBacktest = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     const { strategyId, instrument, startDate, endDate, timeframe = '1min' } = req.body;
 
     if (!strategyId || !instrument || !startDate || !endDate) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields: strategyId, instrument, startDate, endDate',
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(strategyId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid strategyId',
       });
     }
 
@@ -180,7 +180,7 @@ exports.runBacktest = async (req, res) => {
       });
     }
 
-    const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://localhost:8000';
+    const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://localhost:8001';
     const backTestRequest = {
       candles,
       strategy: {
@@ -223,9 +223,18 @@ exports.runBacktest = async (req, res) => {
     if (!pythonResponse.ok) {
       const errorData = await pythonResponse.text();
       console.error('Python engine error:', errorData);
+
+      let parsedDetail = null;
+      try {
+        const maybeJson = JSON.parse(errorData);
+        parsedDetail = maybeJson?.detail || maybeJson?.error || null;
+      } catch (e) {
+        parsedDetail = null;
+      }
+
       return res.status(503).json({
         success: false,
-        error: `Python engine error: ${pythonResponse.status}`,
+        error: parsedDetail || `Python engine error: ${pythonResponse.status}`,
         details: errorData,
       });
     }
@@ -317,7 +326,10 @@ exports.runBacktest = async (req, res) => {
  */
 exports.getBacktests = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     const backtests = await Backtest.find({ user: userId })
       .populate('strategy', 'name strategyType')
@@ -368,7 +380,10 @@ exports.getBacktests = async (req, res) => {
  */
 exports.getBacktest = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     const { id } = req.params;
 
     const backtest = await Backtest.findById(id).populate('strategy');
@@ -422,5 +437,4 @@ exports.getBacktest = async (req, res) => {
       details: error.message,
     });
   }
->>>>>>> Stashed changes
 };

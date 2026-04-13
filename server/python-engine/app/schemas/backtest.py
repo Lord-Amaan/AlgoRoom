@@ -60,10 +60,7 @@ class Strategy(BaseModel):
 
 class BacktestRequest(BaseModel):
     candles: List[Candle]
-<<<<<<< Updated upstream
-    strategy: Strategy
-=======
-    strategy: Strategy
+    strategy: Optional[Strategy] = None
 
 
 class BacktestResponse(BaseModel):
@@ -80,4 +77,3 @@ class BacktestResponse(BaseModel):
     total_trades: int
     win_rate: float
     max_drawdown: float
->>>>>>> Stashed changes

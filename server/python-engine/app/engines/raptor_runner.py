@@ -6,7 +6,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
-import raptorbt
+try:
+    import raptorbt
+except ModuleNotFoundError:  # pragma: no cover
+    raptorbt = None
 
 from app.engines.analytics.advanced_metrics import calculate_advanced_metrics
 from app.engines.analytics.daily_pnl import calculate_daily_pnl
@@ -248,6 +251,12 @@ def run_raptor_engine(df: pd.DataFrame, strategy_dict: Dict[str, Any]) -> Dict[s
       - TIME_BASED (or scheduled STOCKS_FUTURES): intraday entry / square-off windows.
       - INDICATOR_BASED (or unscheduled STOCKS_FUTURES): deterministic SMA(5)/SMA(20) cross (not RSI).
     """
+    if raptorbt is None:
+        raise ValueError(
+            "raptorbt is not installed. Install Visual C++ Build Tools (Desktop development with C++) "
+            "or use Python 3.12 with a prebuilt raptorbt wheel."
+        )
+
     if df.empty or "close" not in df.columns:
         empty_rows: List[Dict[str, Any]] = []
         summary = calculate_summary_metrics(empty_rows)

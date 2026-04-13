@@ -6,17 +6,37 @@ const daywiseResultSchema = new mongoose.Schema({
   trades: { type: Number, default: 0 },
 });
 
+const tradeSchema = new mongoose.Schema(
+  {
+    legIndex: { type: Number, default: 0 },
+    entryPrice: { type: Number, default: 0 },
+    exitPrice: { type: Number, default: 0 },
+    entryTime: { type: Date, default: null },
+    exitTime: { type: Date, default: null },
+    pnl: { type: Number, default: 0 },
+    status: { type: String, default: 'closed' },
+  },
+  { _id: false }
+);
+
 const backtestSchema = new mongoose.Schema(
   {
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
       required: true,
     },
     strategy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Strategy',
       required: true,
+    },
+    instrument: {
+      type: String,
+      default: 'NIFTY',
+    },
+    timeframe: {
+      type: String,
+      default: '1min',
     },
     startDate: {
       type: Date,
@@ -42,6 +62,15 @@ const backtestSchema = new mongoose.Schema(
 
     // Daywise breakdown
     daywiseResults: [daywiseResultSchema],
+
+    // Trade-level results
+    trades: [tradeSchema],
+
+    // Full analytics payload from python-engine
+    rawResults: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   { timestamps: true }
 );
