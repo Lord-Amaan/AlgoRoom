@@ -12,9 +12,9 @@ function formatInr(value) {
 export default function BacktestResults({ summary, createdAt, strategyLabel }) {
   if (!summary || typeof summary !== 'object') {
     return (
-      <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-        <h3 className="text-lg font-semibold mb-4">Backtest Results</h3>
-        <p className="text-dark-500 text-sm">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900">Backtest Results</h3>
+        <p className="text-slate-500 text-sm">
           Results will be displayed here after running a backtest.
         </p>
       </div>
@@ -31,20 +31,20 @@ export default function BacktestResults({ summary, createdAt, strategyLabel }) {
     {
       label: 'Total P&L',
       value: formatInr(totalPnl),
-      color: totalPnl >= 0 ? 'text-green-400' : 'text-red-400',
-      bgColor: totalPnl >= 0 ? 'bg-green-900 bg-opacity-20' : 'bg-red-900 bg-opacity-20',
+      color: totalPnl >= 0 ? 'text-emerald-600' : 'text-rose-600',
+      bgColor: totalPnl >= 0 ? 'bg-emerald-50' : 'bg-rose-50',
     },
     {
       label: 'Win Rate',
       value: `${Number(winRate).toFixed(2)}%`,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-900 bg-opacity-20',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
     },
     {
       label: 'Total Trades',
       value: String(totalTrades),
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-900 bg-opacity-20',
+      color: 'text-violet-600',
+      bgColor: 'bg-violet-50',
     },
     {
       label: 'Max Drawdown',
@@ -53,31 +53,31 @@ export default function BacktestResults({ summary, createdAt, strategyLabel }) {
         maxDdPct != null && maxDdPct !== ''
           ? `${Number(maxDdPct).toFixed(2)}% vs peak equity`
           : null,
-      color: 'text-orange-400',
-      bgColor: 'bg-orange-900 bg-opacity-20',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
     },
   ];
 
   return (
-    <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-      <h3 className="text-lg font-semibold mb-2">Summary</h3>
-      {strategyLabel && <p className="text-sm text-dark-400 mb-4">{strategyLabel}</p>}
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <h3 className="text-lg font-semibold mb-2 text-slate-900">Backtest Summary</h3>
+      {strategyLabel && <p className="text-sm text-slate-500 mb-4">{strategyLabel}</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((metric, idx) => (
           <div
             key={idx}
-            className={`p-4 rounded-lg border border-dark-600 ${metric.bgColor}`}
+            className={`p-4 rounded-xl border border-slate-200 ${metric.bgColor}`}
           >
-            <p className="text-dark-400 text-sm mb-2">{metric.label}</p>
+            <p className="text-slate-500 text-sm mb-2">{metric.label}</p>
             <p className={`text-2xl font-bold ${metric.color}`}>{metric.value}</p>
-            {metric.sub && <p className="text-xs text-dark-500 mt-1">{metric.sub}</p>}
+            {metric.sub && <p className="text-xs text-slate-500 mt-1">{metric.sub}</p>}
           </div>
         ))}
       </div>
 
       {createdAt && (
-        <div className="mt-6 pt-4 border-t border-dark-700 text-sm text-dark-400">
+        <div className="mt-6 pt-4 border-t border-slate-200 text-sm text-slate-500">
           <p>Backtest run on {new Date(createdAt).toLocaleString()}</p>
         </div>
       )}

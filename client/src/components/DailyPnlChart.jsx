@@ -4,9 +4,9 @@
 export default function DailyPnlChart({ dailyPnl = [] }) {
   if (!dailyPnl?.length) {
     return (
-      <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-        <h3 className="text-lg font-semibold mb-4">Daily P&amp;L</h3>
-        <p className="text-dark-500 text-sm">No daily breakdown available.</p>
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900">Daily P&amp;L</h3>
+        <p className="text-slate-500 text-sm">No daily breakdown available.</p>
       </div>
     );
   }
@@ -23,8 +23,8 @@ export default function DailyPnlChart({ dailyPnl = [] }) {
   const pad = (barW - innerW) / 2;
 
   return (
-    <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-      <h3 className="text-lg font-semibold mb-4">Daily P&amp;L</h3>
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <h3 className="text-lg font-semibold mb-4 text-slate-900">Daily P&amp;L</h3>
       <div className="overflow-x-auto">
         <svg
           width={chartW}
@@ -37,7 +37,7 @@ export default function DailyPnlChart({ dailyPnl = [] }) {
             y1={chartH - ((-minP / range) * chartH)}
             x2={chartW}
             y2={chartH - ((-minP / range) * chartH)}
-            stroke="#444"
+            stroke="#c5d0df"
             strokeWidth="0.5"
           />
           {dailyPnl.map((day, i) => {
@@ -60,7 +60,7 @@ export default function DailyPnlChart({ dailyPnl = [] }) {
           })}
         </svg>
       </div>
-      <p className="text-xs text-dark-500 mt-2 text-center">
+      <p className="text-xs text-slate-500 mt-2 text-center">
         {dailyPnl.length} trading day{dailyPnl.length !== 1 ? 's' : ''} (backend)
       </p>
     </div>

@@ -1,9 +1,10 @@
 const Strategy = require('../models/Strategy')
 const StrategyTemplate = require('../models/StrategyTemplate')
+const { getRequestAuth } = require('../middleware/auth')
 
 exports.getStrategies = async (req, res) => {
   try {
-    const userId = req.auth?.userId;
+    const { userId } = getRequestAuth(req);
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
@@ -27,7 +28,7 @@ exports.getStrategyTemplates = async (req, res) => {
 
 exports.getStrategy = async (req, res) => {
   try {
-    const userId = req.auth?.userId;
+    const { userId } = getRequestAuth(req);
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
@@ -53,7 +54,7 @@ exports.getStrategy = async (req, res) => {
 
 exports.createStrategy = async (req, res) => {
   try {
-    const userId = req.auth?.userId;
+    const { userId } = getRequestAuth(req);
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
@@ -109,7 +110,7 @@ exports.createStrategy = async (req, res) => {
 
 exports.updateStrategy = async (req, res) => {
   try {
-    const userId = req.auth?.userId;
+    const { userId } = getRequestAuth(req);
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
@@ -172,7 +173,7 @@ exports.updateStrategy = async (req, res) => {
 
 exports.deleteStrategy = async (req, res) => {
   try {
-    const userId = req.auth?.userId;
+    const { userId } = getRequestAuth(req);
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }

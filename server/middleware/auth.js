@@ -1,15 +1,31 @@
-const { getAuth } = require('@clerk/express');
+function getRequestAuth(req) {
+	const auth = req?.auth;
+
+	if (typeof auth === 'function') {
+		try {
+			return auth() || {};
+		} catch (error) {
+			return {};
+		}
+	}
+
+	if (auth && typeof auth === 'object') {
+		return auth;
+	}
+
+	return {};
+}
 
 // API-friendly auth guard that returns JSON instead of redirecting.
 const protect = (req, res, next) => {
 	try {
-		const auth = getAuth(req);
+		const auth = getRequestAuth(req);
 
 		if (!auth || !auth.userId) {
 			return res.status(401).json({ success: false, error: 'Unauthorized' });
 		}
 
-		// Attach auth to request so controllers can access it
+		// Attach normalized auth to request so controllers can access it.
 		req.auth = auth;
 
 		next();
@@ -19,4 +35,4 @@ const protect = (req, res, next) => {
 	}
 };
 
-module.exports = { protect, getAuth };
+module.exports = { protect, getRequestAuth };

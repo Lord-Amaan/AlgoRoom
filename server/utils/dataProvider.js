@@ -398,9 +398,11 @@ async function fetchDailyMerged(symbol, period1, period2) {
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
  * @param {string} timeframe - 1min | 5min | 15min | 1hour | 1day
+ * @param {{disableCache?: boolean}} options
  * @returns {Promise<Array<{timestamp,open,high,low,close,volume}>>}
  */
-async function getOHLCData(instrument, startDate, endDate, timeframe = '1min') {
+async function getOHLCData(instrument, startDate, endDate, timeframe = '1min', options = {}) {
+  const disableCache = Boolean(options?.disableCache);
   const symbol = resolveSymbol(instrument);
   const tf = normalizeTimeframe(timeframe);
   const cfg = TIMEFRAME_CONFIG[tf];
@@ -411,10 +413,10 @@ async function getOHLCData(instrument, startDate, endDate, timeframe = '1min') {
   }
 
   const key = cacheKey(symbol, startDate, endDate, tf);
-  if (memoryCache.has(key)) {
+  if (!disableCache && memoryCache.has(key)) {
     return memoryCache.get(key);
   }
-  const disk = readDiskCache(key);
+  const disk = disableCache ? null : readDiskCache(key);
   if (disk && Array.isArray(disk.candles)) {
     touchMemoryCache(key, disk.candles);
     return disk.candles;
@@ -459,8 +461,10 @@ async function getOHLCData(instrument, startDate, endDate, timeframe = '1min') {
       );
     }
 
-    writeDiskCache(key, { candles, symbol, startDate, endDate, timeframe: tf });
-    touchMemoryCache(key, candles);
+    if (!disableCache) {
+      writeDiskCache(key, { candles, symbol, startDate, endDate, timeframe: tf });
+      touchMemoryCache(key, candles);
+    }
 
     return candles;
   } catch (error) {

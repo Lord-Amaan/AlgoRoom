@@ -18,6 +18,7 @@ from app.engines.analytics.summary_metrics import calculate_summary_metrics
 
 WEEKDAY_CODE: Tuple[str, ...] = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 DEFAULT_ACTIVE: Set[str] = {"MON", "TUE", "WED", "THU", "FRI"}
+DEFAULT_CONTRACT_MULTIPLIER = 1000.0
 
 
 def _json_safe(obj: Any) -> Any:
@@ -167,7 +168,7 @@ def _build_signals(df: pd.DataFrame, strategy_dict: Dict[str, Any]) -> Tuple[np.
     return _sma_cross_signals(close, fast=5, slow=20)
 
 
-def _apply_leg_risk(cfg: raptorbt.PyBacktestConfig, leg: Dict[str, Any], ref_price: float) -> None:
+def _apply_leg_risk(cfg: Any, leg: Dict[str, Any], ref_price: float) -> None:
     if ref_price <= 0:
         return
     sl_type = leg.get("slType") or leg.get("sl_type")
@@ -191,12 +192,35 @@ def _unix_to_iso(ts: int) -> str:
     return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
 
 
-def _py_trades_to_analytics_rows(py_trades: List[Any]) -> List[Dict[str, Any]]:
+def _pick_trade_time(candle_times: List[pd.Timestamp], idx: int, fallback_unix: int) -> str:
+    if 0 <= idx < len(candle_times):
+        ts = candle_times[idx]
+        if pd.notna(ts):
+            return ts.to_pydatetime().astimezone(timezone.utc).isoformat()
+    return _unix_to_iso(fallback_unix)
+
+
+def _pick_trade_unix(candle_times: List[pd.Timestamp], idx: int, fallback_unix: int) -> int:
+    if 0 <= idx < len(candle_times):
+        ts = candle_times[idx]
+        if pd.notna(ts):
+            return int(ts.to_pydatetime().timestamp())
+    return int(fallback_unix)
+
+
+def _py_trades_to_analytics_rows(
+    py_trades: List[Any],
+    candle_times: List[pd.Timestamp],
+) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for t in py_trades:
         et = int(t.entry_time)
         xt = int(t.exit_time)
         pnl = float(t.pnl)
+        entry_idx = int(t.entry_idx)
+        exit_idx = int(t.exit_idx)
+        entry_unix = _pick_trade_unix(candle_times, entry_idx, et)
+        exit_unix = _pick_trade_unix(candle_times, exit_idx, xt)
         row = {
             "id": int(t.id),
             "legIndex": 0,
@@ -204,12 +228,12 @@ def _py_trades_to_analytics_rows(py_trades: List[Any]) -> List[Dict[str, Any]]:
             "direction": int(t.direction),
             "entry_price": float(t.entry_price),
             "exit_price": float(t.exit_price),
-            "entry_idx": int(t.entry_idx),
-            "exit_idx": int(t.exit_idx),
-            "entry_time_sort": et,
-            "exit_time_sort": xt,
-            "entry_time": _unix_to_iso(et),
-            "exit_time": _unix_to_iso(xt),
+            "entry_idx": entry_idx,
+            "exit_idx": exit_idx,
+            "entry_time_sort": entry_unix,
+            "exit_time_sort": exit_unix,
+            "entry_time": _pick_trade_time(candle_times, entry_idx, et),
+            "exit_time": _pick_trade_time(candle_times, exit_idx, xt),
             "pnl": pnl,
             "profit": pnl,
             "return_pct": float(t.return_pct),
@@ -244,6 +268,110 @@ def _api_trades_from_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
+def _simulate_fallback_backtest(
+    df: pd.DataFrame,
+    strategy_dict: Dict[str, Any],
+    entries: np.ndarray,
+    exits: np.ndarray,
+) -> Dict[str, Any]:
+    ts_series = _ensure_timestamps(df)
+    c = df["close"].to_numpy(dtype=np.float64)
+    legs = strategy_dict.get("legs") or []
+    leg = _first_active_leg(legs)
+    qty = leg.get("qty")
+    qty_for_size = 1
+    if qty is not None:
+        try:
+            qty_for_size = max(1, int(qty))
+        except (TypeError, ValueError):
+            qty_for_size = 1
+
+    direction = _direction_from_legs(legs)
+    symbol = str((strategy_dict.get("instruments") or ["UNDERLYING"])[0])
+
+    open_trade: Optional[Dict[str, Any]] = None
+    trades: List[Dict[str, Any]] = []
+    trade_id = 1
+    size = float(qty_for_size * DEFAULT_CONTRACT_MULTIPLIER)
+
+    candle_times = list(ts_series)
+
+    for i in range(len(df)):
+        if open_trade is None and bool(entries[i]):
+            entry_price = float(c[i])
+            entry_unix = int(ts_series.iloc[i].to_pydatetime().timestamp())
+            open_trade = {
+                "id": trade_id,
+                "legIndex": 0,
+                "symbol": symbol,
+                "direction": int(direction),
+                "entry_price": entry_price,
+                "entry_idx": int(i),
+                "entry_time_sort": entry_unix,
+                "entry_time": _pick_trade_time(candle_times, i, entry_unix),
+                "size": size,
+                "fees": float(strategy_dict.get("fees") or 0.0),
+            }
+            continue
+
+        if open_trade is not None and bool(exits[i]):
+            exit_price = float(c[i])
+            exit_unix = int(ts_series.iloc[i].to_pydatetime().timestamp())
+            entry_price = float(open_trade["entry_price"])
+            pnl = (exit_price - entry_price) * float(open_trade["direction"]) * float(open_trade["size"])
+            return_pct = 0.0 if entry_price == 0 else (exit_price - entry_price) / entry_price * 100.0 * float(open_trade["direction"])
+            trades.append(
+                {
+                    **open_trade,
+                    "exit_price": exit_price,
+                    "exit_idx": int(i),
+                    "exit_time_sort": exit_unix,
+                    "exit_time": _pick_trade_time(candle_times, i, exit_unix),
+                    "pnl": float(round(pnl, 8)),
+                    "profit": float(round(pnl, 8)),
+                    "return_pct": float(round(return_pct, 8)),
+                    "exit_reason": "SCHEDULE_EXIT",
+                }
+            )
+            trade_id += 1
+            open_trade = None
+
+    if open_trade is not None:
+        i = len(df) - 1
+        exit_price = float(c[i])
+        exit_unix = int(ts_series.iloc[i].to_pydatetime().timestamp())
+        entry_price = float(open_trade["entry_price"])
+        pnl = (exit_price - entry_price) * float(open_trade["direction"]) * float(open_trade["size"])
+        return_pct = 0.0 if entry_price == 0 else (exit_price - entry_price) / entry_price * 100.0 * float(open_trade["direction"])
+        trades.append(
+            {
+                **open_trade,
+                "exit_price": exit_price,
+                "exit_idx": int(i),
+                "exit_time_sort": exit_unix,
+                "exit_time": _pick_trade_time(candle_times, i, exit_unix),
+                "pnl": float(round(pnl, 8)),
+                "profit": float(round(pnl, 8)),
+                "return_pct": float(round(return_pct, 8)),
+                "exit_reason": "FORCED_SQUARE_OFF",
+            }
+        )
+
+    summary = calculate_summary_metrics(trades)
+    equity_curve = calculate_equity_curve(trades)
+    daily_data = calculate_daily_pnl(trades)
+    advanced = calculate_advanced_metrics(trades)
+
+    return {
+        "summary": {**summary, "raptor_metrics": {}},
+        "equity_curve": equity_curve,
+        "daily_pnl": daily_data["daily_pnl_list"],
+        "calendar": daily_data["calendar"],
+        "advanced_metrics": advanced,
+        "trades": _api_trades_from_rows(trades),
+    }
+
+
 def run_raptor_engine(df: pd.DataFrame, strategy_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
     Execute RaptorBT on OHLCV (+ timestamp) and enrich with analytics.
@@ -251,12 +379,6 @@ def run_raptor_engine(df: pd.DataFrame, strategy_dict: Dict[str, Any]) -> Dict[s
       - TIME_BASED (or scheduled STOCKS_FUTURES): intraday entry / square-off windows.
       - INDICATOR_BASED (or unscheduled STOCKS_FUTURES): deterministic SMA(5)/SMA(20) cross (not RSI).
     """
-    if raptorbt is None:
-        raise ValueError(
-            "raptorbt is not installed. Install Visual C++ Build Tools (Desktop development with C++) "
-            "or use Python 3.12 with a prebuilt raptorbt wheel."
-        )
-
     if df.empty or "close" not in df.columns:
         empty_rows: List[Dict[str, Any]] = []
         summary = calculate_summary_metrics(empty_rows)
@@ -283,25 +405,43 @@ def run_raptor_engine(df: pd.DataFrame, strategy_dict: Dict[str, Any]) -> Dict[s
     c = df["close"].to_numpy(dtype=np.float64)
     if "volume" in df.columns:
         v = df["volume"].to_numpy(dtype=np.float64)
+        # Yahoo index feeds can return 0 volume; use synthetic volume to avoid fill suppression.
+        if len(v) == 0 or np.nanmax(v) <= 0:
+            v = np.ones(len(df), dtype=np.float64)
     else:
         v = np.ones(len(df), dtype=np.float64)
 
     entries, exits = _build_signals(df, strategy_dict)
+
+    if raptorbt is None:
+        return _simulate_fallback_backtest(df, strategy_dict, entries, exits)
+
     direction = _direction_from_legs(strategy_dict.get("legs") or [])
 
     legs = strategy_dict.get("legs") or []
     leg = _first_active_leg(legs)
+    qty = leg.get("qty")
     ref_price = float(np.nanmean(c)) if len(c) else 0.0
 
-    initial_capital = float(strategy_dict.get("initial_capital") or strategy_dict.get("initialCapital") or 100_000)
+    explicit_capital = strategy_dict.get("initial_capital") or strategy_dict.get("initialCapital")
+    if explicit_capital is not None:
+        initial_capital = float(explicit_capital)
+    else:
+        qty_for_capital = 1
+        if qty is not None:
+            try:
+                qty_for_capital = max(1, int(qty))
+            except (TypeError, ValueError):
+                qty_for_capital = 1
+        # Auto-size default capital so common index qty settings don't silently yield 0 trades.
+        initial_capital = max(100_000.0, ref_price * float(qty_for_capital) * 3.0)
     fees = float(strategy_dict.get("fees") or 0.0)
     slippage = float(strategy_dict.get("slippage") or 0.0)
 
     cfg = raptorbt.PyBacktestConfig(initial_capital=initial_capital, fees=fees, slippage=slippage)
     _apply_leg_risk(cfg, leg, ref_price)
 
-    ic: Optional[raptorbt.PyInstrumentConfig] = None
-    qty = leg.get("qty")
+    ic: Optional[Any] = None
     if qty is not None and int(qty) > 0:
         ic = raptorbt.PyInstrumentConfig(lot_size=int(qty))
 
@@ -326,7 +466,8 @@ def run_raptor_engine(df: pd.DataFrame, strategy_dict: Dict[str, Any]) -> Dict[s
     )
 
     py_trades = list(result.trades())
-    analytics_rows = _py_trades_to_analytics_rows(py_trades)
+    candle_times = list(ts_series)
+    analytics_rows = _py_trades_to_analytics_rows(py_trades, candle_times)
 
     summary = calculate_summary_metrics(analytics_rows)
     equity_curve = calculate_equity_curve(analytics_rows)

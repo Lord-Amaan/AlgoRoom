@@ -124,7 +124,7 @@ export default function Strategies() {
 
   const handleDeployClick = () => {
     if (selectedStrategy) {
-      navigate(`/live-trading?strategyId=${selectedStrategy._id}`);
+      navigate(`/live?strategyId=${selectedStrategy._id}`);
     }
   };
 

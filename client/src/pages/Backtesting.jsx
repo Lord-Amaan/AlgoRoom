@@ -194,24 +194,24 @@ export default function Backtesting() {
     : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Backtesting</h1>
-        <p className="text-dark-400">Run strategies against historical data and analyze results.</p>
+        <h1 className="text-3xl font-bold mb-2 text-slate-900">Backtesting</h1>
+        <p className="text-slate-500">Run strategies against historical data and analyze results.</p>
       </div>
 
-      <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-        <h2 className="text-xl font-semibold mb-4">New Backtest</h2>
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <h2 className="text-xl font-semibold mb-4 text-slate-900">New Backtest</h2>
 
         <form onSubmit={handleRunBacktest} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">Strategy *</label>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Strategy *</label>
               <select
                 name="strategyId"
                 value={formData.strategyId}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                 required
               >
                 <option value="">Select a strategy</option>
@@ -224,12 +224,12 @@ export default function Backtesting() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">Instrument</label>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Instrument</label>
               <select
                 name="instrument"
                 value={formData.instrument}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
               >
                 <option value="NIFTY">NIFTY</option>
                 <option value="BANKNIFTY">BANKNIFTY</option>
@@ -239,38 +239,38 @@ export default function Backtesting() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">Start Date *</label>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Start Date *</label>
               <input
                 type="date"
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleInputChange}
                 max={getTodayDate()}
-                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">End Date *</label>
+              <label className="block text-sm font-medium text-slate-600 mb-2">End Date *</label>
               <input
                 type="date"
                 name="endDate"
                 value={formData.endDate}
                 onChange={handleInputChange}
                 max={getTodayDate()}
-                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">Timeframe</label>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Timeframe</label>
               <select
                 name="timeframe"
                 value={formData.timeframe}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
               >
                 <option value="1min">1 Minute</option>
                 <option value="5min">5 Minutes</option>
@@ -282,7 +282,7 @@ export default function Backtesting() {
           </div>
 
           {error && !selectedResult && (
-            <div className="p-4 bg-red-900 bg-opacity-20 border border-red-600 rounded-lg text-red-400 text-sm">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
               {error}
             </div>
           )}
@@ -290,10 +290,10 @@ export default function Backtesting() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full px-6 py-3 rounded-lg font-semibold transition ${
+            className={`w-full px-6 py-3 rounded-xl font-semibold transition ${
               loading
-                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm'
             }`}
           >
             {loading ? 'Running Backtest...' : 'Run Backtest'}
@@ -307,21 +307,21 @@ export default function Backtesting() {
             <button
               type="button"
               onClick={clearSelection}
-              className="px-4 py-2 text-sm bg-dark-700 border border-dark-600 rounded-lg text-white hover:border-blue-500 transition"
+              className="px-4 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition"
             >
               ← Back to list
             </button>
-            {detailLoading && <span className="text-sm text-dark-400">Loading backtest...</span>}
+            {detailLoading && <span className="text-sm text-slate-500">Loading backtest...</span>}
           </div>
 
           {error && (
-            <div className="p-4 bg-red-900 bg-opacity-20 border border-red-600 rounded-lg text-red-400 text-sm">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
               {error}
             </div>
           )}
 
           {detailLoading ? (
-            <div className="bg-dark-800 p-6 rounded-xl border border-dark-700 text-dark-400 text-sm">
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 text-slate-500 text-sm shadow-sm">
               Loading results...
             </div>
           ) : (
@@ -342,15 +342,15 @@ export default function Backtesting() {
                 <AdvancedMetricsPanel advancedMetrics={advancedMetrics} />
               </div>
 
-              <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-                <h3 className="text-lg font-semibold mb-4">Trades ({trades.length})</h3>
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-lg font-semibold mb-4 text-slate-900">Trades ({trades.length})</h3>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {trades.length > 0 ? (
                     trades.map((trade, idx) => (
                       <PositionCard key={trade.id ?? idx} trade={trade} index={idx + 1} />
                     ))
                   ) : (
-                    <p className="text-dark-400 text-sm">No trades executed.</p>
+                    <p className="text-slate-500 text-sm">No trades executed.</p>
                   )}
                 </div>
               </div>
@@ -360,8 +360,8 @@ export default function Backtesting() {
       )}
 
       {backtests.length > 0 && !selectedResult && (
-        <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-          <h3 className="text-lg font-semibold mb-4">Past Backtests</h3>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4 text-slate-900">Past Backtests</h3>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {backtests.map((backtest, idx) => {
               const id = backtest.id || backtest._id || idx;
@@ -379,12 +379,12 @@ export default function Backtesting() {
                   onKeyDown={(e) => e.key === 'Enter' && openPastBacktest(backtest)}
                   role="button"
                   tabIndex={0}
-                  className="p-4 bg-dark-700 rounded-lg cursor-pointer hover:bg-dark-600 transition border border-dark-600 hover:border-blue-500"
+                  className="p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-white transition border border-slate-200 hover:border-blue-300"
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-semibold text-white">{strategyName}</p>
-                      <p className="text-sm text-dark-400">
+                      <p className="font-semibold text-slate-800">{strategyName}</p>
+                      <p className="text-sm text-slate-500">
                         {backtest.instrument || 'N/A'}
                         {start && end
                           ? ` • ${new Date(start).toLocaleDateString()} to ${new Date(end).toLocaleDateString()}`
@@ -392,11 +392,11 @@ export default function Backtesting() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className={`font-semibold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      <p className={`font-semibold ${pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {pnl > 0 ? '+' : ''}
                         {Number(pnl).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-sm text-dark-400">{nTrades} trades</p>
+                      <p className="text-sm text-slate-500">{nTrades} trades</p>
                     </div>
                   </div>
                 </div>

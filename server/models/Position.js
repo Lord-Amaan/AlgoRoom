@@ -3,13 +3,18 @@ const mongoose = require('mongoose');
 const positionSchema = new mongoose.Schema(
   {
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
       required: true,
+      index: true,
     },
     strategy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Strategy',
+    },
+    deployment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'StrategyDeployment',
+      index: true,
     },
     instrument: {
       type: String,
@@ -27,6 +32,9 @@ const positionSchema = new mongoose.Schema(
     optionType: {
       type: String,
       enum: ['CALL', 'PUT'],
+    },
+    strike: {
+      type: Number,
     },
     legIndex: {
       type: Number,
@@ -51,6 +59,11 @@ const positionSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    mode: {
+      type: String,
+      enum: ['PAPER', 'LIVE'],
+      default: 'PAPER',
     },
     isPaper: {
       type: Boolean,

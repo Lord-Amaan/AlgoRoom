@@ -32,12 +32,12 @@ AlgoRoom is a full-stack algorithmic trading platform that lets you build, backt
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, Vite, Tailwind CSS, Recharts |
-| Backend | Node.js, Express, Mongoose (MongoDB) |
-| Auth | Clerk (`@clerk/clerk-react`, `@clerk/express`) |
-| Backtest Engine | Python, FastAPI, Uvicorn, Pandas, NumPy |
+| Layer           | Technology                                     |
+| --------------- | ---------------------------------------------- |
+| Frontend        | React 18, Vite, Tailwind CSS, Recharts         |
+| Backend         | Node.js, Express, Mongoose (MongoDB)           |
+| Auth            | Clerk (`@clerk/clerk-react`, `@clerk/express`) |
+| Backtest Engine | Python, FastAPI, Uvicorn, Pandas, NumPy        |
 
 ---
 
@@ -133,9 +133,28 @@ npm run dev
 cd client
 npm run dev
 
-# Terminal 3 — Python backtest engine (http://localhost:8000)
+# Terminal 3 — Python backtest engine (http://localhost:8001)
 cd server/python-engine
 python main.py
+```
+
+### Reliable Windows Startup
+
+Use these scripts from the repository root to always run the correct Python interpreter:
+
+```powershell
+# Start only Python engine (forces .venv312 interpreter on port 8001)
+powershell -ExecutionPolicy Bypass -File .\scripts\start-python-engine.ps1 -ForceRestart
+
+# Start backend + frontend + python engine in separate terminals
+powershell -ExecutionPolicy Bypass -File .\scripts\start-dev-stack.ps1
+```
+
+If you manually start backend, use the correct command in [server/package.json](server/package.json):
+
+```bash
+cd server
+npm run dev
 ```
 
 ---
@@ -162,32 +181,61 @@ Browser (React)
 
 ### Express Backend (`/api`)
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/api/auth/me` | Sync Clerk user to MongoDB |
-| GET/POST | `/api/strategies` | List / create strategies |
-| GET/PUT/DELETE | `/api/strategies/:id` | Manage a strategy |
-| POST | `/api/backtest` | Run a backtest |
-| GET | `/api/trades` | Get trade history |
+| Method         | Route                 | Description                |
+| -------------- | --------------------- | -------------------------- |
+| GET            | `/api/auth/me`        | Sync Clerk user to MongoDB |
+| GET/POST       | `/api/strategies`     | List / create strategies   |
+| GET/PUT/DELETE | `/api/strategies/:id` | Manage a strategy          |
+| POST           | `/api/backtest`       | Run a backtest             |
+| GET            | `/api/trades`         | Get trade history          |
 
 ### Python Engine
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/health` | Health check |
-| POST | `/backtest` | Run backtest on candle data |
+| Method | Route       | Description                 |
+| ------ | ----------- | --------------------------- |
+| GET    | `/health`   | Health check                |
+| POST   | `/backtest` | Run backtest on candle data |
 
 **Backtest request body:**
 
 ```json
 {
-  "candles": [{ "timestamp": "2025-03-30 09:16:00", "open": 24500, "high": 24520, "low": 24480, "close": 24505, "volume": 100000 }],
+  "candles": [
+    {
+      "timestamp": "2025-03-30 09:16:00",
+      "open": 24500,
+      "high": 24520,
+      "low": 24480,
+      "close": 24505,
+      "volume": 100000
+    }
+  ],
   "strategy": {
     "strategyType": "INDICATOR_BASED",
     "instruments": ["NIFTY"],
-    "legs": [{ "qty": 50, "position": "BUY", "optionType": "CALL", "strikeType": "ATM", "slType": "SL%", "sl": 5, "tpType": "TP%", "tp": 10 }],
-    "orderConfig": { "type": "MIS", "startTime": "09:16", "squareOff": "15:15", "activeDays": ["MON","TUE","WED","THU","FRI"] },
-    "riskManagement": { "exitOnProfit": 1000, "exitOnLoss": -500, "profitTrailing": "TRAIL_PROFIT" }
+    "legs": [
+      {
+        "qty": 50,
+        "position": "BUY",
+        "optionType": "CALL",
+        "strikeType": "ATM",
+        "slType": "SL%",
+        "sl": 5,
+        "tpType": "TP%",
+        "tp": 10
+      }
+    ],
+    "orderConfig": {
+      "type": "MIS",
+      "startTime": "09:16",
+      "squareOff": "15:15",
+      "activeDays": ["MON", "TUE", "WED", "THU", "FRI"]
+    },
+    "riskManagement": {
+      "exitOnProfit": 1000,
+      "exitOnLoss": -500,
+      "profitTrailing": "TRAIL_PROFIT"
+    }
   }
 }
 ```
@@ -199,11 +247,13 @@ Browser (React)
 The Python engine is built with [FastAPI](https://fastapi.tiangolo.com/) and handles all heavy backtesting computation.
 
 **Currently supported:**
+
 - RSI indicator calculation
 - Long-only trade simulation on OHLC candle data
 - P&L, win rate, and trade result reporting
 
 **Planned (see `PYTHON_ENGINE_SPEC.md`):**
+
 - Multi-leg options strategies (BUY/SELL CALL/PUT)
 - Strike selection (ATM, OTM, ITM)
 - Additional indicators: Bollinger Bands, MACD, EMA Crossover, Stochastic

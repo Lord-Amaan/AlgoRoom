@@ -16,8 +16,9 @@ export const backtestService = {
 };
 
 export const tradeService = {
-  getAll: () => api.get('/trades'),
-  getPositions: () => api.get('/trades/positions'),
-  deploy: (strategyId) => api.post(`/trades/deploy/${strategyId}`),
+  getAll: (deploymentId) => api.get('/trades', deploymentId ? { params: { deploymentId } } : undefined),
+  getPositions: (deploymentId) =>
+    api.get('/trades/positions', deploymentId ? { params: { deploymentId } } : undefined),
+  deploy: (strategyId, data = {}) => api.post(`/trades/deploy/${strategyId}`, data),
   stop: (strategyId) => api.post(`/trades/stop/${strategyId}`),
 };

@@ -5,9 +5,9 @@ export default function CalendarHeatmap({ calendar = {} }) {
   const months = Object.keys(calendar).sort();
   if (!months.length) {
     return (
-      <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-        <h3 className="text-lg font-semibold mb-4">P&amp;L Calendar</h3>
-        <p className="text-dark-500 text-sm">No calendar data available.</p>
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900">Daywise Breakdown</h3>
+        <p className="text-slate-500 text-sm">No calendar data available.</p>
       </div>
     );
   }
@@ -26,15 +26,15 @@ export default function CalendarHeatmap({ calendar = {} }) {
   };
 
   return (
-    <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-      <h3 className="text-lg font-semibold mb-4">P&amp;L Calendar</h3>
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <h3 className="text-lg font-semibold mb-4 text-slate-900">Daywise Breakdown</h3>
       <div className="space-y-6 max-h-96 overflow-y-auto">
         {months.map((ym) => {
           const days = calendar[ym] || {};
           const dayKeys = Object.keys(days).sort((a, b) => Number(a) - Number(b));
           return (
             <div key={ym}>
-              <p className="text-sm font-medium text-dark-300 mb-2">{ym}</p>
+              <p className="text-sm font-medium text-slate-600 mb-2">{ym}</p>
               <div className="flex flex-wrap gap-1">
                 {dayKeys.map((d) => {
                   const { bg, v } = cell(days[d]);
@@ -42,7 +42,7 @@ export default function CalendarHeatmap({ calendar = {} }) {
                     <div
                       key={`${ym}-${d}`}
                       title={`${ym}-${d.padStart(2, '0')}: ${v.toFixed(2)}`}
-                      className="w-8 h-8 rounded text-[10px] flex items-center justify-center text-white font-medium border border-dark-600"
+                      className="w-8 h-8 rounded text-[10px] flex items-center justify-center text-white font-medium border border-slate-200"
                       style={{ backgroundColor: bg }}
                     >
                       {d}
@@ -54,7 +54,7 @@ export default function CalendarHeatmap({ calendar = {} }) {
           );
         })}
       </div>
-      <p className="text-xs text-dark-500 mt-4">Intensity = magnitude of daily P&amp;L (backend)</p>
+      <p className="text-xs text-slate-500 mt-4">Intensity = magnitude of daily P&amp;L (backend)</p>
     </div>
   );
 }

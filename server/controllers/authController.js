@@ -1,8 +1,12 @@
-const {upsertUser} = require('../services/userService')
+const { upsertUser } = require('../services/userService')
+const { getRequestAuth } = require('../middleware/auth')
 exports.getMe = async (req, res) => {
   try {
-    // Get userId from req.auth (set by protect middleware)
-    const userId = req.auth?.userId;
+    const { userId } = getRequestAuth(req);
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     const user = await upsertUser(userId);
     res.status(200).json({ userId, user });

@@ -15,21 +15,21 @@ export default function PositionCard({ trade, index }) {
     entryPrice !== 0 ? ((Number(pnl) / Number(entryPrice)) * 100).toFixed(2) : '0.00';
 
   return (
-    <div className="bg-dark-700 p-4 rounded-lg border border-dark-600 hover:border-blue-500 transition">
+    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition">
       <div className="flex justify-between items-start mb-3">
         <div>
-          <p className="font-semibold text-white">Trade #{index}</p>
-          <p className="text-xs text-dark-400 mt-1">
+          <p className="font-semibold text-slate-900">Trade #{index}</p>
+          <p className="text-xs text-slate-500 mt-1">
             {entryTime ? new Date(entryTime).toLocaleString() : 'N/A'} →{' '}
             {exitTime ? new Date(exitTime).toLocaleString() : 'N/A'}
           </p>
           {exitReason && (
-            <p className="text-xs text-dark-500 mt-1">Exit: {exitReason}</p>
+            <p className="text-xs text-slate-500 mt-1">Exit: {exitReason}</p>
           )}
         </div>
         <div
           className={`px-3 py-1 rounded text-sm font-semibold ${
-            pnl >= 0 ? 'bg-green-900 bg-opacity-30 text-green-400' : 'bg-red-900 bg-opacity-30 text-red-400'
+            pnl >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
           }`}
         >
           {pnl >= 0 ? '+' : ''}
@@ -39,28 +39,28 @@ export default function PositionCard({ trade, index }) {
 
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
-          <p className="text-dark-400">Entry</p>
-          <p className="font-semibold text-white">{Number(entryPrice).toFixed(2)}</p>
+          <p className="text-slate-500">Entry</p>
+          <p className="font-semibold text-slate-900">{Number(entryPrice).toFixed(2)}</p>
         </div>
         <div>
-          <p className="text-dark-400">Exit</p>
-          <p className="font-semibold text-white">{Number(exitPrice).toFixed(2)}</p>
+          <p className="text-slate-500">Exit</p>
+          <p className="font-semibold text-slate-900">{Number(exitPrice).toFixed(2)}</p>
         </div>
         <div>
-          <p className="text-dark-400">Status</p>
+          <p className="text-slate-500">Status</p>
           <p
             className={`font-semibold ${
-              trade.status === 'closed' ? 'text-blue-400' : 'text-yellow-400'
+              trade.status === 'closed' ? 'text-blue-600' : 'text-amber-600'
             }`}
           >
             {trade.status || 'closed'}
           </p>
         </div>
         <div>
-          <p className="text-dark-400">P&amp;L % (vs entry)</p>
+          <p className="text-slate-500">P&amp;L % (vs entry)</p>
           <p
             className={`font-semibold ${
-              Number(pnlPercentage) >= 0 ? 'text-green-400' : 'text-red-400'
+              Number(pnlPercentage) >= 0 ? 'text-emerald-600' : 'text-rose-600'
             }`}
           >
             {Number(pnlPercentage) >= 0 ? '+' : ''}
@@ -69,8 +69,8 @@ export default function PositionCard({ trade, index }) {
         </div>
         {returnPct != null && (
           <div className="col-span-2">
-            <p className="text-dark-400">Return % (engine)</p>
-            <p className="font-semibold text-white">{Number(returnPct).toFixed(4)}%</p>
+            <p className="text-slate-500">Return % (engine)</p>
+            <p className="font-semibold text-slate-900">{Number(returnPct).toFixed(4)}%</p>
           </div>
         )}
       </div>

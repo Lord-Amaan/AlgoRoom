@@ -38,3 +38,42 @@ def test_run_raptor_engine_empty_df():
     r = run_raptor_engine(df, {"legs": [{"position": "BUY"}]})
     assert r["trades"] == []
     assert r["summary"]["total_trades"] == 0
+
+
+def test_run_raptor_engine_time_based_golden_case():
+    df = pd.DataFrame(
+        [
+            {"timestamp": "2026-04-14 09:16:00", "open": 100, "high": 101, "low": 99, "close": 100, "volume": 10},
+            {"timestamp": "2026-04-14 09:17:00", "open": 100, "high": 102, "low": 99, "close": 101, "volume": 11},
+            {"timestamp": "2026-04-14 09:18:00", "open": 101, "high": 103, "low": 100, "close": 102, "volume": 12},
+            {"timestamp": "2026-04-14 09:19:00", "open": 102, "high": 104, "low": 101, "close": 103, "volume": 13},
+        ]
+    )
+    strat = {
+        "strategyType": "TIME_BASED",
+        "legs": [{"position": "BUY", "isActive": True, "qty": 1}],
+        "instruments": ["NIFTY"],
+        "orderConfig": {
+            "startTime": "09:16",
+            "squareOff": "09:18",
+            "activeDays": ["TUE"],
+        },
+    }
+
+    result = run_raptor_engine(df, strat)
+
+    assert result["summary"]["total_trades"] == 1
+    assert result["summary"]["total_pnl"] == 2000.0
+    assert result["summary"]["winning_trades"] == 1
+    assert result["summary"]["max_drawdown"] == 0.0
+    assert result["daily_pnl"] == [{"date": "2026-04-14", "pnl": 2000.0}]
+    assert result["calendar"] == {"2026-04": {"14": 2000.0}}
+
+    assert len(result["trades"]) == 1
+    trade = result["trades"][0]
+    assert trade["entry_time"] == "2026-04-14T03:46:00+00:00"
+    assert trade["exit_time"] == "2026-04-14T03:48:00+00:00"
+    assert trade["entry_price"] == 100.0
+    assert trade["exit_price"] == 102.0
+    assert trade["pnl"] == 2000.0
+    assert trade["return_pct"] == 2.0

@@ -1,7 +1,7 @@
 const Strategy = require('../models/Strategy');
 const Backtest = require('../models/Backtest');
 const { getOHLCData } = require('../utils/dataProvider');
-const { getAuth } = require('../middleware/auth');
+const { getRequestAuth } = require('../middleware/auth');
 const mongoose = require('mongoose');
 
 /**
@@ -94,7 +94,7 @@ function buildDashboardData(backtestDoc) {
  */
 exports.runBacktest = async (req, res) => {
   try {
-    const { userId } = getAuth(req);
+    const { userId } = getRequestAuth(req);
     if (!userId) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
@@ -326,7 +326,7 @@ exports.runBacktest = async (req, res) => {
  */
 exports.getBacktests = async (req, res) => {
   try {
-    const { userId } = getAuth(req);
+    const { userId } = getRequestAuth(req);
     if (!userId) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
@@ -380,7 +380,7 @@ exports.getBacktests = async (req, res) => {
  */
 exports.getBacktest = async (req, res) => {
   try {
-    const { userId } = getAuth(req);
+    const { userId } = getRequestAuth(req);
     if (!userId) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
