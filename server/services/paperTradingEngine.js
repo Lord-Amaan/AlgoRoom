@@ -10,6 +10,25 @@ class PaperTradingEngine {
     this.runners = new Map();
   }
 
+  toDayCode(weekdayShort) {
+    const code = String(weekdayShort || '').toUpperCase().slice(0, 3);
+    const allowed = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    return allowed.includes(code) ? code : 'MON';
+  }
+
+  nextActiveDayCode(activeDays, fromDayCode) {
+    const week = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const start = week.indexOf(this.toDayCode(fromDayCode));
+    const days = Array.isArray(activeDays) && activeDays.length ? activeDays.map((d) => this.toDayCode(d)) : ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+    for (let i = 1; i <= 7; i += 1) {
+      const idx = (start + i) % 7;
+      if (days.includes(week[idx])) {
+        return { dayCode: week[idx], offsetDays: i };
+      }
+    }
+    return { dayCode: 'MON', offsetDays: 1 };
+  }
+
   parseHm(value, fallback = '09:16') {
     const raw = String(value || fallback).trim();
     const [hhRaw, mmRaw] = raw.split(':');
@@ -53,27 +72,47 @@ class PaperTradingEngine {
     const now = this.getNowIst();
 
     if (!activeDays.includes(now.weekday)) {
+      const next = this.nextActiveDayCode(activeDays, now.weekday);
+      const nextResumeAt = this.buildIstDateFromNow(next.offsetDays, startHm);
       return {
         ok: false,
         reason: `Non-trading day (${now.weekday})`,
+        nextResumeAt,
       };
     }
 
     if (now.minutesFromMidnight < startHm) {
+      const nextResumeAt = this.buildIstDateFromNow(0, startHm);
       return {
         ok: false,
         reason: 'Market session has not started for this strategy',
+        nextResumeAt,
       };
     }
 
     if (now.minutesFromMidnight >= squareOffHm) {
+      const next = this.nextActiveDayCode(activeDays, now.weekday);
+      const nextResumeAt = this.buildIstDateFromNow(next.offsetDays, startHm);
       return {
         ok: false,
         reason: 'Strategy square-off time already passed',
+        nextResumeAt,
       };
     }
 
-    return { ok: true, reason: '' };
+    return { ok: true, reason: '', nextResumeAt: null };
+  }
+
+  buildIstDateFromNow(offsetDays, minuteOfDay, baseDate = new Date()) {
+    const baseDateStr = this.toDateStringIST(baseDate);
+    const baseIstMidnight = new Date(`${baseDateStr}T00:00:00+05:30`);
+    const hh = Math.floor(minuteOfDay / 60);
+    const min = minuteOfDay % 60;
+    const targetMs = baseIstMidnight.getTime()
+      + (offsetDays * 24 * 60 * 60 * 1000)
+      + (hh * 60 * 60 * 1000)
+      + (min * 60 * 1000);
+    return new Date(targetMs);
   }
 
   getStrikeSpacing(instrument) {
@@ -122,17 +161,88 @@ class PaperTradingEngine {
     return atmStrike;
   }
 
-  getSyntheticOptionPrice(spotPrice, strike, optionType) {
+  getSyntheticOptionPrice(spotPrice, strike, optionType, instrument = 'NIFTY', asOf = new Date()) {
     const spot = Number(spotPrice || 0);
     const strikePrice = Number(strike || 0);
     const option = String(optionType || 'CALL').toUpperCase();
+    const symbol = String(instrument || 'NIFTY').toUpperCase();
+
+    if (spot <= 0 || strikePrice <= 0) {
+      return 1;
+    }
+
+    const atmDistance = Math.abs(spot - strikePrice) / Math.max(1, strikePrice);
+    const yearlyIv = this.getSyntheticIv(symbol, atmDistance);
+    const tau = this.timeToNextExpiryYears(asOf);
+    const sigmaSqrtT = yearlyIv * Math.sqrt(Math.max(1 / 365, tau));
+
     const intrinsic = option === 'CALL' ? Math.max(0, spot - strikePrice) : Math.max(0, strikePrice - spot);
-    const moneynessDistance = Math.abs(spot - strikePrice);
-    const spacing = Math.max(1, this.getStrikeSpacing('NIFTY'));
-    const timeValueFloor = Math.max(12, spot * 0.0025);
-    const decay = Math.exp(-moneynessDistance / (spacing * 4));
-    const premium = intrinsic + timeValueFloor * decay;
+    const extrinsic = Math.max(1, spot * sigmaSqrtT * (0.35 + 0.65 * Math.exp(-atmDistance * 8)));
+    const premium = intrinsic + extrinsic;
     return Number(Math.max(1, premium).toFixed(2));
+  }
+
+  getSyntheticIv(instrument, moneynessDistance) {
+    const baseIv = {
+      NIFTY: 0.16,
+      BANKNIFTY: 0.2,
+      FINNIFTY: 0.18,
+      GOLDBEES: 0.14,
+    };
+    const base = baseIv[instrument] || 0.17;
+    const smileBump = Math.min(0.15, moneynessDistance * 1.8);
+    return base + smileBump;
+  }
+
+  nextThursdayIst(asOf = new Date()) {
+    const now = new Date(asOf);
+    const weekdayShort = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'short' }).format(now);
+    const map = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+    const wd = map[this.toDayCode(weekdayShort)] ?? 1;
+    let offset = (4 - wd + 7) % 7;
+
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(now);
+    const hm = (Number(parts.find((p) => p.type === 'hour')?.value || 0) * 60)
+      + Number(parts.find((p) => p.type === 'minute')?.value || 0);
+    if (offset === 0 && hm >= 15 * 60 + 30) {
+      offset = 7;
+    }
+
+    return this.buildIstDateFromNow(offset, 15 * 60 + 30, now);
+  }
+
+  timeToNextExpiryYears(asOf = new Date()) {
+    const expiry = this.nextThursdayIst(asOf);
+    const deltaMs = Math.max(0, expiry.getTime() - new Date(asOf).getTime());
+    const years = deltaMs / (365 * 24 * 60 * 60 * 1000);
+    return Math.max(1 / 365, years);
+  }
+
+  async reconcileDeployment(deploymentId) {
+    const [deployment, openPositions, closedTrades] = await Promise.all([
+      StrategyDeployment.findById(deploymentId),
+      Position.find({ deployment: deploymentId, mode: 'PAPER', isActive: true }).select('unrealizedPnl'),
+      Trade.find({ deployment: deploymentId, mode: 'PAPER', status: 'closed' }).select('pnl'),
+    ]);
+    if (!deployment) return;
+
+    const unrealized = openPositions.reduce((sum, p) => sum + Number(p.unrealizedPnl || 0), 0);
+    const realized = closedTrades.reduce((sum, t) => sum + Number(t.pnl || 0), 0);
+    const total = realized + unrealized;
+
+    const near = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) < 0.01;
+    if (!near(deployment.realizedPnl, realized) || !near(deployment.unrealizedPnl, unrealized) || !near(deployment.totalPnl, total)) {
+      deployment.realizedPnl = Number(realized.toFixed(2));
+      deployment.unrealizedPnl = Number(unrealized.toFixed(2));
+      deployment.totalPnl = Number(total.toFixed(2));
+      deployment.lastHeartbeatAt = new Date();
+      await deployment.save();
+    }
   }
 
   async startDeployment(deploymentId) {
@@ -173,6 +283,9 @@ class PaperTradingEngine {
     }
 
     deployment.status = 'RUNNING';
+    deployment.sessionState = marketWindow.ok ? 'ACTIVE' : 'PAUSED';
+    deployment.sessionReason = marketWindow.ok ? '' : marketWindow.reason;
+    deployment.nextResumeAt = marketWindow.nextResumeAt || null;
     deployment.lastError = marketWindow.ok ? '' : `Waiting for market window: ${marketWindow.reason}`;
     deployment.lastPrice = markPrice;
     deployment.lastHeartbeatAt = new Date();
@@ -185,6 +298,9 @@ class PaperTradingEngine {
       mode: deployment.mode,
       instrument: deployment.instrument,
       timeframe: deployment.timeframe,
+      sessionState: deployment.sessionState,
+      sessionReason: deployment.sessionReason,
+      nextResumeAt: deployment.nextResumeAt,
       realizedPnl: deployment.realizedPnl,
       unrealizedPnl: deployment.unrealizedPnl,
       totalPnl: deployment.totalPnl,
@@ -214,6 +330,9 @@ class PaperTradingEngine {
     }
 
     deployment.status = 'STOPPING';
+    deployment.sessionState = 'PAUSED';
+    deployment.sessionReason = reason;
+    deployment.nextResumeAt = null;
     deployment.stopReason = reason;
     deployment.lastHeartbeatAt = new Date();
     await deployment.save();
@@ -224,6 +343,9 @@ class PaperTradingEngine {
     updated.unrealizedPnl = 0;
     updated.totalPnl = Number(updated.realizedPnl || 0);
     updated.status = 'STOPPED';
+    updated.sessionState = 'PAUSED';
+    updated.sessionReason = reason;
+    updated.nextResumeAt = null;
     updated.stoppedAt = new Date();
     updated.lastHeartbeatAt = new Date();
     await updated.save();
@@ -237,6 +359,9 @@ class PaperTradingEngine {
       mode: updated.mode,
       instrument: updated.instrument,
       timeframe: updated.timeframe,
+      sessionState: updated.sessionState,
+      sessionReason: updated.sessionReason,
+      nextResumeAt: updated.nextResumeAt,
       realizedPnl: updated.realizedPnl,
       unrealizedPnl: updated.unrealizedPnl,
       totalPnl: updated.totalPnl,
@@ -253,6 +378,14 @@ class PaperTradingEngine {
       mode: 'PAPER',
       status: { $in: ['STARTING', 'RUNNING'] },
     }).select('_id');
+
+    const runningIds = new Set(running.map((dep) => String(dep._id)));
+    for (const [runnerId, intervalRef] of this.runners.entries()) {
+      if (!runningIds.has(runnerId)) {
+        clearInterval(intervalRef);
+        this.runners.delete(runnerId);
+      }
+    }
 
     for (const dep of running) {
       try {
@@ -286,6 +419,9 @@ class PaperTradingEngine {
           await this.closeAllOpenPositions(deployment._id, 'SQUARE_OFF_TIME');
         }
 
+        deployment.sessionState = 'PAUSED';
+        deployment.sessionReason = marketWindow.reason;
+        deployment.nextResumeAt = marketWindow.nextResumeAt || null;
         deployment.lastError = `Waiting for market window: ${marketWindow.reason}`;
         deployment.lastHeartbeatAt = new Date();
         await deployment.save();
@@ -297,6 +433,9 @@ class PaperTradingEngine {
           mode: deployment.mode,
           instrument: deployment.instrument,
           timeframe: deployment.timeframe,
+          sessionState: deployment.sessionState,
+          sessionReason: deployment.sessionReason,
+          nextResumeAt: deployment.nextResumeAt,
           realizedPnl: deployment.realizedPnl,
           unrealizedPnl: deployment.unrealizedPnl,
           totalPnl: deployment.totalPnl,
@@ -309,10 +448,39 @@ class PaperTradingEngine {
 
       if (this.isSquareOffTime(strategy)) {
         await this.closeAllOpenPositions(deployment._id, 'SQUARE_OFF_TIME');
-        deployment.unrealizedPnl = 0;
-        deployment.totalPnl = Number(deployment.realizedPnl || 0);
-        deployment.lastHeartbeatAt = new Date();
-        await deployment.save();
+        await this.reconcileDeployment(deployment._id);
+        const afterClose = await StrategyDeployment.findById(deployment._id);
+        if (!afterClose) return;
+        afterClose.sessionState = 'PAUSED';
+        afterClose.sessionReason = 'Square-off completed for today';
+        const orderConfig = strategy?.orderConfig || {};
+        const activeDays = Array.isArray(orderConfig.activeDays) && orderConfig.activeDays.length
+          ? orderConfig.activeDays.map((d) => String(d).toUpperCase())
+          : ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+        const startHm = this.parseHm(orderConfig.startTime, '09:16');
+        const next = this.nextActiveDayCode(activeDays, this.getNowIst().weekday);
+        afterClose.nextResumeAt = this.buildIstDateFromNow(next.offsetDays, startHm);
+        afterClose.unrealizedPnl = 0;
+        afterClose.totalPnl = Number(afterClose.realizedPnl || 0);
+        afterClose.lastHeartbeatAt = new Date();
+        await afterClose.save();
+
+        emit('deployment:updated', {
+          deploymentId: String(afterClose._id),
+          userId: afterClose.userId,
+          status: afterClose.status,
+          mode: afterClose.mode,
+          instrument: afterClose.instrument,
+          timeframe: afterClose.timeframe,
+          sessionState: afterClose.sessionState,
+          sessionReason: afterClose.sessionReason,
+          nextResumeAt: afterClose.nextResumeAt,
+          realizedPnl: afterClose.realizedPnl,
+          unrealizedPnl: afterClose.unrealizedPnl,
+          totalPnl: afterClose.totalPnl,
+          lastPrice: afterClose.lastPrice,
+          lastHeartbeatAt: afterClose.lastHeartbeatAt,
+        });
         return;
       }
 
@@ -341,7 +509,7 @@ class PaperTradingEngine {
       let unrealizedPnl = 0;
       for (const position of openPositions) {
         const leg = strategy.legs?.[position.legIndex] || {};
-        const mark = this.getSyntheticOptionPrice(price, position.strike, position.optionType);
+        const mark = this.getSyntheticOptionPrice(price, position.strike, position.optionType, deployment.instrument);
         const pnl = this.calculatePnl(position.entryPrice, mark, position.quantity, position.position);
         position.currentPrice = mark;
         position.unrealizedPnl = pnl;
@@ -363,23 +531,33 @@ class PaperTradingEngine {
 
       deployment.unrealizedPnl = unrealizedPnl;
       deployment.totalPnl = Number(deployment.realizedPnl || 0) + unrealizedPnl;
+      deployment.sessionState = 'ACTIVE';
+      deployment.sessionReason = '';
+      deployment.nextResumeAt = null;
       deployment.lastPrice = price;
       deployment.lastError = '';
       deployment.lastHeartbeatAt = new Date();
       await deployment.save();
 
+      await this.reconcileDeployment(deployment._id);
+      const reconciled = await StrategyDeployment.findById(deployment._id);
+      if (!reconciled) return;
+
       emit('deployment:updated', {
-        deploymentId: String(deployment._id),
-        userId: deployment.userId,
-        status: deployment.status,
-        mode: deployment.mode,
-        instrument: deployment.instrument,
-        timeframe: deployment.timeframe,
-        realizedPnl: deployment.realizedPnl,
-        unrealizedPnl: deployment.unrealizedPnl,
-        totalPnl: deployment.totalPnl,
-        lastPrice: deployment.lastPrice,
-        lastHeartbeatAt: deployment.lastHeartbeatAt,
+        deploymentId: String(reconciled._id),
+        userId: reconciled.userId,
+        status: reconciled.status,
+        mode: reconciled.mode,
+        instrument: reconciled.instrument,
+        timeframe: reconciled.timeframe,
+        sessionState: reconciled.sessionState,
+        sessionReason: reconciled.sessionReason,
+        nextResumeAt: reconciled.nextResumeAt,
+        realizedPnl: reconciled.realizedPnl,
+        unrealizedPnl: reconciled.unrealizedPnl,
+        totalPnl: reconciled.totalPnl,
+        lastPrice: reconciled.lastPrice,
+        lastHeartbeatAt: reconciled.lastHeartbeatAt,
       });
 
       const refreshedPositions = await Position.find({
@@ -434,7 +612,7 @@ class PaperTradingEngine {
       const optionType = leg.optionType || 'CALL';
       const strike = this.getStrikeForLeg(markPrice, leg, deployment.instrument);
       const symbol = `${deployment.instrument}_${optionType}_${leg.strikeType || 'ATM'}`;
-      const entryPrice = this.getSyntheticOptionPrice(markPrice, strike, optionType);
+      const entryPrice = this.getSyntheticOptionPrice(markPrice, strike, optionType, deployment.instrument);
 
       return {
         user: deployment.userId,
@@ -555,7 +733,7 @@ class PaperTradingEngine {
 
     for (const position of openPositions) {
       const exitUnderlying = fallbackPrice > 0 ? fallbackPrice : Number(position.currentPrice || position.entryPrice || 0);
-      const exitPrice = this.getSyntheticOptionPrice(exitUnderlying, position.strike, position.optionType);
+      const exitPrice = this.getSyntheticOptionPrice(exitUnderlying, position.strike, position.optionType, deployment.instrument);
       await this.closePosition(position, exitPrice, reason);
     }
   }

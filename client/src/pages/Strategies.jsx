@@ -14,6 +14,7 @@ export default function Strategies() {
   const [status, setStatus] = useState('');
   const [searchText, setSearchText] = useState('');
   const [strategies, setStrategies] = useState([]);
+  const [strategyNotes, setStrategyNotes] = useState({});
   const [templates, setTemplates] = useState([]);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,6 +46,24 @@ export default function Strategies() {
   useEffect(() => {
     loadAllStrategies();
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('algoroom_strategy_notes');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          setStrategyNotes(parsed);
+        }
+      }
+    } catch (error) {
+      // Ignore invalid saved notes payload.
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('algoroom_strategy_notes', JSON.stringify(strategyNotes));
+  }, [strategyNotes]);
 
   const handleCardClick = (strategy) => {
     setSelectedStrategy(strategy);
@@ -126,6 +145,13 @@ export default function Strategies() {
     if (selectedStrategy) {
       navigate(`/live?strategyId=${selectedStrategy._id}`);
     }
+  };
+
+  const updateStrategyNote = (strategyId, value) => {
+    setStrategyNotes((prev) => ({
+      ...prev,
+      [strategyId]: value,
+    }));
   };
 
   const filteredStrategies = useMemo(() => {
@@ -290,6 +316,19 @@ export default function Strategies() {
               </div>
 
               <p className="mb-2 text-xs text-[#71849d]">Legs: {strategy?.legs?.length || 0}</p>
+
+              <div className="mb-2 rounded-lg border border-[#d7e2f0] bg-white/80 px-2 py-2">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#73859f]">
+                  Strategy Note (click to edit)
+                </p>
+                <textarea
+                  value={strategyNotes[strategy._id] || ''}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => updateStrategyNote(strategy._id, event.target.value)}
+                  placeholder="Write a quick explanation for this strategy..."
+                  className="h-20 w-full resize-none rounded-md border border-[#d6e1ef] bg-white px-2 py-1.5 text-xs text-[#344a66] outline-none ring-[#8caad8] focus:ring"
+                />
+              </div>
 
               <div className="flex flex-wrap gap-1.5">
                 {(strategy?.instruments || []).slice(0, 4).map((symbol) => (

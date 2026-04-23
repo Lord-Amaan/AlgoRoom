@@ -7,6 +7,7 @@ import StrategyBuilder from './pages/StrategyBuilder';
 import Strategies from './pages/Strategies';
 import Backtesting from './pages/Backtesting';
 import LiveTrading from './pages/LiveTrading';
+import LiveCharts from './pages/LiveCharts';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Navbar from './components/Navbar';
@@ -16,11 +17,11 @@ import api from './services/api';
 
 function AppLayout({ children }) {
   return (
-    <div className="flex h-screen">
+    <div className="flex min-h-screen flex-col md:h-screen md:flex-row">
       <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
@@ -93,6 +94,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Backtesting />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/live-charts"
+        element={
+          <ProtectedRoute>
+            <LiveCharts />
           </ProtectedRoute>
         }
       />

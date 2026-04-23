@@ -22,3 +22,15 @@ export const tradeService = {
   deploy: (strategyId, data = {}) => api.post(`/trades/deploy/${strategyId}`, data),
   stop: (strategyId) => api.post(`/trades/stop/${strategyId}`),
 };
+
+export const marketService = {
+  search: ({ q = '', cursor = 0, limit = 24 } = {}) =>
+    api.get('/markets/search', {
+      params: {
+        q,
+        cursor,
+        limit,
+      },
+    }),
+  getBySymbol: (symbol) => api.get(`/markets/${symbol}`),
+};

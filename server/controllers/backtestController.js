@@ -4,6 +4,24 @@ const { getOHLCData } = require('../utils/dataProvider');
 const { getRequestAuth } = require('../middleware/auth');
 const mongoose = require('mongoose');
 
+const BACKTEST_LIMIT_PER_DAY = Number(process.env.BACKTEST_LIMIT_PER_DAY || 50);
+
+function getIstDayBounds(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+  const dateString = `${get('year')}-${get('month')}-${get('day')}`;
+  return {
+    start: new Date(`${dateString}T00:00:00+05:30`),
+    end: new Date(`${dateString}T23:59:59.999+05:30`),
+  };
+}
+
 /**
  * Extract analytics arrays/objects from Python (or stored rawResults).
  */
@@ -111,6 +129,25 @@ exports.runBacktest = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid strategyId',
+      });
+    }
+
+    const { start: dayStart, end: dayEnd } = getIstDayBounds(new Date());
+    const usedToday = await Backtest.countDocuments({
+      user: userId,
+      createdAt: { $gte: dayStart, $lte: dayEnd },
+    });
+
+    if (usedToday >= BACKTEST_LIMIT_PER_DAY) {
+      return res.status(429).json({
+        success: false,
+        error: `Daily backtest limit reached (${BACKTEST_LIMIT_PER_DAY}/day).`,
+        data: {
+          limit: BACKTEST_LIMIT_PER_DAY,
+          used: usedToday,
+          remaining: 0,
+          resetAt: dayEnd,
+        },
       });
     }
 
@@ -305,6 +342,11 @@ exports.runBacktest = async (req, res) => {
         type: strategy.strategyType,
       },
       status: backtest.status,
+      usage: {
+        limit: BACKTEST_LIMIT_PER_DAY,
+        used: usedToday + 1,
+        remaining: Math.max(0, BACKTEST_LIMIT_PER_DAY - (usedToday + 1)),
+      },
     };
 
     return res.status(200).json({

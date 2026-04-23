@@ -25,6 +25,19 @@ const strategyDeploymentSchema = new mongoose.Schema(
       default: 'STARTING',
       index: true,
     },
+    sessionState: {
+      type: String,
+      enum: ['ACTIVE', 'PAUSED'],
+      default: 'PAUSED',
+      index: true,
+    },
+    sessionReason: {
+      type: String,
+      default: '',
+    },
+    nextResumeAt: {
+      type: Date,
+    },
     instrument: {
       type: String,
       required: true,

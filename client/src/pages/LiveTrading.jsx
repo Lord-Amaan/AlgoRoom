@@ -223,6 +223,17 @@ export default function LiveTrading() {
     : positionsPayload.positions || [];
   const totalUnrealized = activePositions.reduce((sum, position) => sum + Number(position.unrealizedPnl || 0), 0);
 
+  const formatResume = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-[#dce4f0] bg-white p-6 shadow-sm">
@@ -338,9 +349,20 @@ export default function LiveTrading() {
                   <p className="mt-1 text-xs text-[#6d7f97]">Legs: {strategy?.legs?.length || 0}</p>
 
                   {running ? (
-                    <p className="mt-2 text-xs font-semibold text-[#1f7a3f]">
-                      {running.status} | PnL: {Number(running.totalPnl || 0).toFixed(2)}
-                    </p>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs font-semibold text-[#1f7a3f]">
+                        {running.status} | PnL: {Number(running.totalPnl || 0).toFixed(2)}
+                      </p>
+                      <p className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${running.sessionState === 'ACTIVE' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                        Session: {running.sessionState || 'PAUSED'}
+                      </p>
+                      {running.sessionReason ? (
+                        <p className="text-[11px] text-[#6d7f97]">{running.sessionReason}</p>
+                      ) : null}
+                      {running.nextResumeAt ? (
+                        <p className="text-[11px] text-[#6d7f97]">Resumes: {formatResume(running.nextResumeAt)} IST</p>
+                      ) : null}
+                    </div>
                   ) : (
                     <p className="mt-2 text-xs font-semibold text-[#8a5a21]">Not running</p>
                   )}

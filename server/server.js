@@ -40,6 +40,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/strategies', require('./routes/strategies'));
 app.use('/api/backtest', require('./routes/backtest'));
 app.use('/api/trades', require('./routes/trades'));
+app.use('/api/markets', require('./routes/markets'));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Algoroom API is running' });
